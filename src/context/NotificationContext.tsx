@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Notification } from '@/types';
 import { useAuth } from './AuthContext';
@@ -10,6 +9,7 @@ interface NotificationContextType {
   loading: boolean;
   error: Error | null;
   markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
   refetchNotifications: () => Promise<void>;
 }
 
@@ -19,6 +19,7 @@ const NotificationContext = createContext<NotificationContextType>({
   loading: false,
   error: null,
   markAsRead: async () => {},
+  markAllAsRead: async () => {},
   refetchNotifications: async () => {},
 });
 
@@ -52,7 +53,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Fetch notifications when user changes
   useEffect(() => {
     fetchUserNotifications();
   }, [user]);
@@ -70,6 +70,25 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      const unreadNotifications = notifications.filter(notification => !notification.read);
+      
+      for (const notification of unreadNotifications) {
+        await markNotificationAsRead(notification.id);
+      }
+      
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification => ({
+          ...notification,
+          read: true
+        }))
+      );
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
   const unreadCount = notifications.filter(notification => !notification.read).length;
 
   return (
@@ -80,6 +99,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         loading,
         error,
         markAsRead,
+        markAllAsRead,
         refetchNotifications: fetchUserNotifications,
       }}
     >
