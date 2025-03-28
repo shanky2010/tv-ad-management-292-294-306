@@ -20,6 +20,12 @@ import MyBookingsPage from "./pages/bookings/MyBookingsPage";
 import MyAdsPage from "./pages/ads/MyAdsPage";
 import NotFound from "./pages/NotFound";
 
+// Let's create placeholders for these missing pages
+import SettingsPage from "./pages/settings/SettingsPage";
+import ManageAdSlotsPage from "./pages/ad-slots/ManageAdSlotsPage";
+import ManageBookingsPage from "./pages/bookings/ManageBookingsPage";
+import AnalyticsPage from "./pages/analytics/AnalyticsPage";
+
 // Create a new QueryClient with default stale time
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,11 +52,20 @@ const App = () => (
               
               {/* Protected Routes */}
               <Route element={<AppShell />}>
+                {/* Common Routes */}
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                
+                {/* Advertiser Routes */}
                 <Route path="/ad-slots" element={<AdSlotsPage />} />
                 <Route path="/ad-slots/:slotId/book" element={<BookSlotPage />} />
                 <Route path="/my-bookings" element={<MyBookingsPage />} />
                 <Route path="/my-ads" element={<MyAdsPage />} />
+                
+                {/* Admin Routes */}
+                <Route path="/ad-slots/manage" element={<ManageAdSlotsPage />} />
+                <Route path="/bookings/manage" element={<ManageBookingsPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
               </Route>
               
               {/* 404 Page */}

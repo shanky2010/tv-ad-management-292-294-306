@@ -53,7 +53,7 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Admin Dashboard</h2>
-        <Link to="/manage-slots">
+        <Link to="/ad-slots/manage">
           <Button>
             <Calendar className="mr-2 h-4 w-4" />
             Manage Slots
@@ -220,7 +220,7 @@ const AdminDashboard: React.FC = () => {
             <CardDescription>Create and modify time slots</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center py-4">
-            <Link to="/manage-slots">
+            <Link to="/ad-slots/manage">
               <Button>
                 <Calendar className="mr-2 h-4 w-4" />
                 Manage Slots
@@ -234,7 +234,7 @@ const AdminDashboard: React.FC = () => {
             <CardDescription>Approve or reject ad bookings</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center py-4">
-            <Link to="/bookings">
+            <Link to="/bookings/manage">
               <Button>
                 <FileVideo className="mr-2 h-4 w-4" />
                 View All Bookings

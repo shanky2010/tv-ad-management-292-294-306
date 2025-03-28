@@ -19,12 +19,12 @@ export const Sidebar = () => {
   // Admin-specific routes
   const adminRoutes = [
     {
-      path: '/manage-slots',
+      path: '/ad-slots/manage',
       name: 'Manage Slots',
       icon: <Calendar className="h-5 w-5" />,
     },
     {
-      path: '/manage-bookings',
+      path: '/bookings/manage',
       name: 'Booking Requests',
       icon: <BookOpen className="h-5 w-5" />,
     },
