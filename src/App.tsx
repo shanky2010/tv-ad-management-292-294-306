@@ -14,6 +14,10 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import Dashboard from "./pages/dashboard/Dashboard";
+import AdSlotsPage from "./pages/ad-slots/AdSlotsPage";
+import BookSlotPage from "./pages/ad-slots/BookSlotPage";
+import MyBookingsPage from "./pages/bookings/MyBookingsPage";
+import MyAdsPage from "./pages/ads/MyAdsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +39,10 @@ const App = () => (
               {/* Protected Routes */}
               <Route element={<AppShell />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/ad-slots" element={<AdSlotsPage />} />
+                <Route path="/ad-slots/:slotId/book" element={<BookSlotPage />} />
+                <Route path="/my-bookings" element={<MyBookingsPage />} />
+                <Route path="/my-ads" element={<MyAdsPage />} />
                 {/* Add more protected routes here */}
               </Route>
               
