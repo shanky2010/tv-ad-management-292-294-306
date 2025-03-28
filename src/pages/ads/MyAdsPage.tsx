@@ -2,8 +2,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '@/config/firebase';
+import { db } from '@/config/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Plus, Trash, Edit, Play, Clock, Calendar, Film } from 'lucide-react';
+import { Plus, Trash, Edit, Film } from 'lucide-react';
 
 const MyAdsPage: React.FC = () => {
   const { user } = useAuth();
@@ -26,7 +25,8 @@ const MyAdsPage: React.FC = () => {
   const [adDescription, setAdDescription] = useState('');
   const [adType, setAdType] = useState<'image' | 'video'>('image');
   const [adFile, setAdFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // State for edit form
   const [editAdId, setEditAdId] = useState<string | null>(null);
@@ -73,6 +73,7 @@ const MyAdsPage: React.FC = () => {
       setAdTitle('');
       setAdDescription('');
       setAdFile(null);
+      setPreviewData(null);
       setAdType('image');
       toast.success('Ad created successfully!');
     },
@@ -101,15 +102,6 @@ const MyAdsPage: React.FC = () => {
   const deleteAdMutation = useMutation({
     mutationFn: async (adId: string) => {
       const adRef = doc(db, 'ads', adId);
-      const adData = (await queryClient.getQueryData(['ads', user?.id]) as any[])
-        .find(ad => ad.id === adId);
-      
-      // Delete file from storage if it exists
-      if (adData?.fileUrl) {
-        const fileRef = ref(storage, adData.fileUrl);
-        await deleteObject(fileRef);
-      }
-      
       return await deleteDoc(adRef);
     },
     onSuccess: () => {
@@ -134,13 +126,22 @@ const MyAdsPage: React.FC = () => {
         return;
       }
       
-      // Check file size (limit to 50MB)
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error('File size must be less than 50MB');
+      // Check file size (limit to 5MB for base64)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB when not using Firebase Storage');
         return;
       }
       
       setAdFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPreviewData(event.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
   
@@ -148,25 +149,27 @@ const MyAdsPage: React.FC = () => {
     e.preventDefault();
     
     if (!user) return;
-    if (!adFile) {
+    if (!adFile || !previewData) {
       toast.error('Please select a file to upload');
       return;
     }
     
-    setIsUploading(true);
+    setIsProcessing(true);
     
     try {
-      // Upload file to storage
-      const storageRef = ref(storage, `ads/${user.id}/${Date.now()}-${adFile.name}`);
-      const snapshot = await uploadBytes(storageRef, adFile);
-      const fileUrl = await getDownloadURL(snapshot.ref);
+      // Create thumbnail for video if needed
+      let thumbnailData = null;
+      if (adType === 'video') {
+        thumbnailData = previewData; // In a real app, you'd generate a thumbnail
+      }
       
-      // Create ad document
+      // Create ad document with base64 data
       const newAd = {
         title: adTitle,
         description: adDescription,
         type: adType,
-        fileUrl,
+        fileData: previewData,
+        thumbnailData: thumbnailData,
         advertiserId: user.id,
         advertiserName: user.name,
         createdAt: Timestamp.now(),
@@ -176,9 +179,9 @@ const MyAdsPage: React.FC = () => {
       createAdMutation.mutate(newAd);
     } catch (error) {
       console.error('Error creating ad:', error);
-      toast.error('Failed to upload file. Please try again.');
+      toast.error('Failed to process file. Please try again.');
     } finally {
-      setIsUploading(false);
+      setIsProcessing(false);
     }
   };
   
@@ -254,18 +257,24 @@ const MyAdsPage: React.FC = () => {
                     {ad.type === 'image' ? (
                       <div className="aspect-video bg-muted rounded-md overflow-hidden">
                         <img 
-                          src={ad.fileUrl} 
+                          src={ad.fileData} 
                           alt={ad.title} 
                           className="w-full h-full object-cover"
                         />
                       </div>
                     ) : (
                       <div className="aspect-video bg-muted rounded-md overflow-hidden">
-                        <video 
-                          src={ad.fileUrl} 
-                          controls
-                          className="w-full h-full object-cover"
-                        />
+                        {ad.fileData ? (
+                          <video 
+                            src={ad.fileData} 
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <p>Video preview not available</p>
+                          </div>
+                        )}
                       </div>
                     )}
                     <p className="mt-3 text-sm text-muted-foreground line-clamp-2">
@@ -358,21 +367,33 @@ const MyAdsPage: React.FC = () => {
                   />
                   <p className="text-xs text-muted-foreground">
                     {adType === 'image' 
-                      ? 'Accepted formats: JPG, PNG, GIF. Max size: 50MB.'
-                      : 'Accepted formats: MP4, MOV, WebM. Max size: 50MB.'}
+                      ? 'Accepted formats: JPG, PNG, GIF. Max size: 5MB.'
+                      : 'Accepted formats: MP4, WebM. Max size: 5MB.'}
                   </p>
                 </div>
                 
-                {adFile && (
+                {previewData && (
                   <div className="p-4 border rounded-md">
-                    <p className="font-medium">Selected file:</p>
-                    <p>{adFile.name} ({(adFile.size / (1024 * 1024)).toFixed(2)} MB)</p>
+                    <p className="font-medium">File preview:</p>
+                    {adType === 'image' ? (
+                      <img 
+                        src={previewData} 
+                        alt="Preview" 
+                        className="mt-2 max-h-[200px] object-contain"
+                      />
+                    ) : (
+                      <video 
+                        src={previewData}
+                        controls
+                        className="mt-2 max-h-[200px] w-full"
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>
               <CardFooter>
-                <Button type="submit" disabled={isUploading} className="w-full">
-                  {isUploading ? 'Uploading...' : 'Create Ad'}
+                <Button type="submit" disabled={isProcessing} className="w-full">
+                  {isProcessing ? 'Processing...' : 'Create Ad'}
                 </Button>
               </CardFooter>
             </form>

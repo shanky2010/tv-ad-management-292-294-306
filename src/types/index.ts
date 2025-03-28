@@ -50,7 +50,8 @@ export interface Ad {
   title: string;
   description: string;
   type: 'image' | 'video';
-  fileUrl: string;
+  fileData: string; // Base64 encoded data instead of fileUrl
+  thumbnailData?: string; // For videos, a thumbnail preview in base64
   advertiserId: string;
   advertiserName: string;
   createdAt: Date;
