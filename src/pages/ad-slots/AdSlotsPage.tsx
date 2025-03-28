@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
@@ -131,7 +130,7 @@ const AdSlotsPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <span>{slot.viewershipEstimate.toLocaleString()} estimated viewers</span>
+                  <span>{slot.estimatedViewers.toLocaleString()} estimated viewers</span>
                 </div>
               </CardContent>
               <CardFooter>

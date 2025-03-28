@@ -1,5 +1,4 @@
 
-// Add a slotDetails field to the Booking interface
 export interface User {
   id: string;
   name: string;
@@ -9,6 +8,9 @@ export interface User {
   company?: string;
   phone?: string;
 }
+
+// Add the UserRole type export
+export type UserRole = 'admin' | 'advertiser';
 
 export interface AdSlot {
   id: string;
@@ -63,8 +65,28 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: 'success' | 'info' | 'warning' | 'error';
+  type: 'success' | 'info' | 'warning' | 'error' | 'booking_request' | 'booking_status' | 'system';
   read: boolean;
   createdAt: Date;
   linkTo?: string;
+  targetId?: string;
+}
+
+// Add missing Channel and PerformanceMetric interfaces
+export interface Channel {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  averageViewership: number;
+}
+
+export interface PerformanceMetric {
+  id: string;
+  bookingId: string;
+  adId: string;
+  date: Date;
+  views: number;
+  engagementRate: number;
+  timeSlot: string;
 }

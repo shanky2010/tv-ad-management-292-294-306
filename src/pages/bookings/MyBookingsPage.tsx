@@ -48,10 +48,12 @@ const MyBookingsPage: React.FC = () => {
           status: data.status || 'pending',
           adId: data.adId || null,
           slotDetails: slotDetails ? {
-            ...slotDetails,
+            channelName: slotDetails.channelName,
             startTime: slotDetails.startTime.toDate(),
             endTime: slotDetails.endTime.toDate(),
-          } : null
+            price: slotDetails.price,
+            durationSeconds: slotDetails.durationSeconds
+          } : undefined
         });
       }
       
