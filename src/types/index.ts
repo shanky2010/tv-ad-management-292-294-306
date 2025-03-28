@@ -1,25 +1,28 @@
 
-export type UserRole = 'admin' | 'advertiser';
-
+// Add a slotDetails field to the Booking interface
 export interface User {
   id: string;
-  email: string;
   name: string;
-  role: UserRole;
+  email: string;
+  role: 'admin' | 'advertiser';
   avatar?: string;
+  company?: string;
+  phone?: string;
 }
 
 export interface AdSlot {
   id: string;
   title: string;
-  channelId: string;
+  description: string;
   channelName: string;
   startTime: Date;
   endTime: Date;
-  duration: number; // in seconds
+  durationSeconds: number;
   price: number;
-  status: 'available' | 'booked' | 'completed';
-  viewershipEstimate: number;
+  status: 'available' | 'booked' | 'expired';
+  estimatedViewers: number;
+  createdAt: Date;
+  createdBy: string;
 }
 
 export interface Booking {
@@ -27,31 +30,31 @@ export interface Booking {
   slotId: string;
   advertiserId: string;
   advertiserName: string;
-  adId: string;
+  adId: string | null;
   adTitle: string;
+  adDescription: string;
   status: 'pending' | 'approved' | 'rejected' | 'completed';
   createdAt: Date;
-  totalViews?: number;
-  engagementRate?: number;
+  slotDetails?: {
+    channelName: string;
+    startTime: Date;
+    endTime: Date;
+    price: number;
+    durationSeconds: number;
+    [key: string]: any;
+  };
 }
 
 export interface Ad {
   id: string;
   title: string;
   description: string;
-  mediaUrl: string;
-  mediaType: 'image' | 'video';
-  duration: number; // in seconds
+  type: 'image' | 'video';
+  fileUrl: string;
   advertiserId: string;
+  advertiserName: string;
   createdAt: Date;
-}
-
-export interface Channel {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  averageViewership: number;
+  status: 'active' | 'inactive' | 'pending';
 }
 
 export interface Notification {
@@ -59,18 +62,8 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
+  type: 'success' | 'info' | 'warning' | 'error';
   read: boolean;
   createdAt: Date;
-  type: 'booking_request' | 'booking_status' | 'system';
-  targetId?: string;
-}
-
-export interface PerformanceMetric {
-  id: string;
-  bookingId: string;
-  adId: string;
-  date: Date;
-  views: number;
-  engagementRate: number;
-  timeSlot: string;
+  linkTo?: string;
 }

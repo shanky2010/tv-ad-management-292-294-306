@@ -6,7 +6,8 @@ import { db } from '@/config/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AreaChart, BarChart } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
+import { AreaChart, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, Bar } from 'recharts';
 import { Booking, AdSlot } from '@/types';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
@@ -141,14 +142,35 @@ const AdvertiserDashboard: React.FC = () => {
             <CardDescription>Daily viewership over the last 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            <AreaChart
-              data={performanceData}
-              index="date"
-              categories={["views"]}
-              colors={["primary"]}
-              valueFormatter={(value: number) => `${(value / 1000).toFixed(0)}K`}
+            <ChartContainer 
               className="h-[300px]"
-            />
+              config={{
+                views: {
+                  label: "Views",
+                  theme: {
+                    light: "hsl(var(--primary))",
+                    dark: "hsl(var(--primary))",
+                  },
+                },
+              }}
+            >
+              <AreaChart 
+                data={performanceData}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" />
+                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" />
+                <Tooltip />
+                <Area type="monotone" dataKey="views" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorViews)" />
+              </AreaChart>
+            </ChartContainer>
           </CardContent>
         </Card>
         
@@ -158,14 +180,29 @@ const AdvertiserDashboard: React.FC = () => {
             <CardDescription>Views by channel</CardDescription>
           </CardHeader>
           <CardContent>
-            <BarChart
-              data={channelPerformance}
-              index="channel"
-              categories={["views"]}
-              colors={["primary"]}
-              valueFormatter={(value: number) => `${(value / 1000).toFixed(0)}K`}
+            <ChartContainer 
               className="h-[300px]"
-            />
+              config={{
+                views: {
+                  label: "Views",
+                  theme: {
+                    light: "hsl(var(--primary))",
+                    dark: "hsl(var(--primary))",
+                  },
+                },
+              }}
+            >
+              <BarChart
+                data={channelPerformance}
+                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              >
+                <XAxis dataKey="channel" />
+                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" />
+                <Tooltip />
+                <Bar dataKey="views" fill="hsl(var(--primary))" />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
