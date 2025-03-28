@@ -1,7 +1,6 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { AdSlot } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,29 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { Calendar, Clock, DollarSign, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const fetchAdSlots = async () => {
-  const q = query(
-    collection(db, 'adSlots'),
-    where('status', '==', 'available'),
-    orderBy('startTime')
-  );
-  
-  const querySnapshot = await getDocs(q);
-  const slots: AdSlot[] = [];
-  
-  querySnapshot.forEach((doc) => {
-    const data = doc.data();
-    slots.push({
-      id: doc.id,
-      ...data,
-      startTime: data.startTime.toDate(),
-      endTime: data.endTime.toDate(),
-    } as AdSlot);
-  });
-  
-  return slots;
-};
+import { fetchAdSlots } from '@/services/mockApi';
 
 const AdSlotsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');

@@ -1,98 +1,89 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { Notification } from '@/types';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from './AuthContext';
+import { fetchNotifications, markNotificationAsRead } from '@/services/mockApi';
 
-type NotificationContextType = {
+interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
+  loading: boolean;
+  error: Error | null;
   markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
-};
+  refetchNotifications: () => Promise<void>;
+}
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const NotificationContext = createContext<NotificationContextType>({
+  notifications: [],
+  unreadCount: 0,
+  loading: false,
+  error: null,
+  markAsRead: async () => {},
+  refetchNotifications: async () => {},
+});
 
-export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+export const useNotifications = () => useContext(NotificationContext);
+
+export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const { user } = useAuth();
 
-  useEffect(() => {
+  const fetchUserNotifications = async () => {
     if (!user) {
       setNotifications([]);
-      setUnreadCount(0);
       return;
     }
 
-    // Subscribe to notifications for the current user
-    const notificationsRef = collection(db, 'notifications');
-    const q = query(
-      notificationsRef,
-      where('userId', '==', user.id),
-      orderBy('createdAt', 'desc')
-    );
+    setLoading(true);
+    setError(null);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notificationsList: Notification[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        notificationsList.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt.toDate(),
-        } as Notification);
-      });
-      
-      setNotifications(notificationsList);
-      setUnreadCount(notificationsList.filter(notification => !notification.read).length);
-    });
+    try {
+      const userNotifications = await fetchNotifications(user.id);
+      setNotifications(userNotifications);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      setError(err instanceof Error ? err : new Error('Failed to fetch notifications'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => unsubscribe();
+  // Fetch notifications when user changes
+  useEffect(() => {
+    fetchUserNotifications();
   }, [user]);
 
-  const markAsRead = async (id: string): Promise<void> => {
-    if (!user) return;
-    
+  const markAsRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, 'notifications', id), {
-        read: true
-      });
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
+      const updatedNotification = await markNotificationAsRead(id);
+      setNotifications(prevNotifications =>
+        prevNotifications.map(notification =>
+          notification.id === id ? updatedNotification : notification
+        )
+      );
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
     }
   };
 
-  const markAllAsRead = async (): Promise<void> => {
-    if (!user) return;
-    
-    try {
-      // Update each unread notification
-      const unreads = notifications.filter(n => !n.read);
-      const promises = unreads.map(notification => 
-        updateDoc(doc(db, 'notifications', notification.id), { read: true })
-      );
-      
-      await Promise.all(promises);
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error);
-    }
-  };
+  const unreadCount = notifications.filter(notification => !notification.read).length;
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, markAsRead, markAllAsRead }}
+      value={{
+        notifications,
+        unreadCount,
+        loading,
+        error,
+        markAsRead,
+        refetchNotifications: fetchUserNotifications,
+      }}
     >
       {children}
     </NotificationContext.Provider>
   );
-};
-
-export const useNotifications = (): NotificationContextType => {
-  const context = useContext(NotificationContext);
-  if (context === undefined) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
-  }
-  return context;
 };

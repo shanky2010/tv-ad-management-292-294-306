@@ -20,7 +20,15 @@ import MyBookingsPage from "./pages/bookings/MyBookingsPage";
 import MyAdsPage from "./pages/ads/MyAdsPage";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create a new QueryClient with default stale time
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -43,7 +51,6 @@ const App = () => (
                 <Route path="/ad-slots/:slotId/book" element={<BookSlotPage />} />
                 <Route path="/my-bookings" element={<MyBookingsPage />} />
                 <Route path="/my-ads" element={<MyAdsPage />} />
-                {/* Add more protected routes here */}
               </Route>
               
               {/* 404 Page */}
