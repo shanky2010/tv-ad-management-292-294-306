@@ -20,9 +20,10 @@ import MyBookingsPage from "./pages/bookings/MyBookingsPage";
 import MyAdsPage from "./pages/ads/MyAdsPage";
 import NotFound from "./pages/NotFound";
 
-// Let's create placeholders for these missing pages
+// Pages
 import SettingsPage from "./pages/settings/SettingsPage";
 import ManageAdSlotsPage from "./pages/ad-slots/ManageAdSlotsPage";
+import EditAdSlotPage from "./pages/ad-slots/EditAdSlotPage";
 import ManageBookingsPage from "./pages/bookings/ManageBookingsPage";
 import AnalyticsPage from "./pages/analytics/AnalyticsPage";
 
@@ -64,6 +65,7 @@ const App = () => (
                 
                 {/* Admin Routes */}
                 <Route path="/ad-slots/manage" element={<ManageAdSlotsPage />} />
+                <Route path="/ad-slots/:slotId/edit" element={<EditAdSlotPage />} />
                 <Route path="/bookings/manage" element={<ManageBookingsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
               </Route>

@@ -2,16 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { AdSlot } from '@/types';
+import { AdSlot, Ad } from '@/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { getAdSlot, fetchAds, bookAdSlot } from '@/services/mockApi';
 
 const BookSlotPage: React.FC = () => {
   const { slotId } = useParams<{ slotId: string }>();
@@ -26,24 +25,17 @@ const BookSlotPage: React.FC = () => {
   const [adTitle, setAdTitle] = useState('');
   const [adDescription, setAdDescription] = useState('');
   const [selectedAd, setSelectedAd] = useState('');
-  const [userAds, setUserAds] = useState<any[]>([]);
+  const [userAds, setUserAds] = useState<Ad[]>([]);
   
   useEffect(() => {
     const fetchSlotDetails = async () => {
       if (!slotId) return;
       
       try {
-        const slotRef = doc(db, 'adSlots', slotId);
-        const slotSnap = await getDoc(slotRef);
+        const fetchedSlot = await getAdSlot(slotId);
         
-        if (slotSnap.exists()) {
-          const slotData = slotSnap.data();
-          setAdSlot({
-            id: slotSnap.id,
-            ...slotData,
-            startTime: slotData.startTime.toDate(),
-            endTime: slotData.endTime.toDate(),
-          } as AdSlot);
+        if (fetchedSlot) {
+          setAdSlot(fetchedSlot);
         } else {
           toast.error('Ad slot not found');
           navigate('/ad-slots');
@@ -60,30 +52,29 @@ const BookSlotPage: React.FC = () => {
       if (!user?.id) return;
       
       try {
-        const q = query(
-          collection(db, 'ads'),
-          where('advertiserId', '==', user.id)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const ads: any[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          ads.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
-        
+        const ads = await fetchAds(user.id);
         setUserAds(ads);
       } catch (error) {
         console.error('Error fetching user ads:', error);
+        toast.error('Failed to load your ads');
       }
     };
     
     fetchSlotDetails();
     fetchUserAds();
   }, [slotId, user?.id, navigate]);
+  
+  // Handle ad selection
+  const handleAdSelect = (adId: string) => {
+    setSelectedAd(adId);
+    if (adId) {
+      const selectedAd = userAds.find(ad => ad.id === adId);
+      if (selectedAd) {
+        setAdTitle(selectedAd.title);
+        setAdDescription(selectedAd.description);
+      }
+    }
+  };
   
   const handleBookSlot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,18 +84,13 @@ const BookSlotPage: React.FC = () => {
     setSubmitting(true);
     
     try {
-      const bookingData = {
-        slotId: adSlot.id,
-        advertiserId: user.id,
-        advertiserName: user.name,
-        adId: selectedAd || null,
+      await bookAdSlot(
+        adSlot.id,
+        user.id,
+        selectedAd,
         adTitle,
-        adDescription,
-        status: 'pending',
-        createdAt: Timestamp.now(),
-      };
-      
-      await addDoc(collection(db, 'bookings'), bookingData);
+        adDescription
+      );
       
       toast.success('Booking submitted successfully!');
       navigate('/my-bookings');
@@ -168,11 +154,11 @@ const BookSlotPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Start Time</p>
-                  <p>{format(adSlot.startTime, 'PPP p')}</p>
+                  <p>{format(new Date(adSlot.startTime), 'PPP p')}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">End Time</p>
-                  <p>{format(adSlot.endTime, 'PPP p')}</p>
+                  <p>{format(new Date(adSlot.endTime), 'PPP p')}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Duration</p>
@@ -201,7 +187,7 @@ const BookSlotPage: React.FC = () => {
                     <select
                       id="selectedAd"
                       value={selectedAd}
-                      onChange={(e) => setSelectedAd(e.target.value)}
+                      onChange={(e) => handleAdSelect(e.target.value)}
                       className="w-full p-2 border rounded"
                     >
                       <option value="">-- Create a new ad --</option>

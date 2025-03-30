@@ -1,3 +1,4 @@
+
 import {
   User,
   AdSlot,
@@ -61,6 +62,21 @@ export const fetchAdSlots = async (): Promise<AdSlot[]> => {
 export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
   await delay(500);
   return db.adSlots.find(slot => slot.id === id) || null;
+};
+
+export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<AdSlot> => {
+  await delay(1000);
+  
+  const newSlot: AdSlot = {
+    ...slotData,
+    id: `slot-${Date.now()}`,
+    createdAt: new Date(),
+    createdBy: '1', // Admin ID
+    status: 'available'
+  };
+  
+  db.adSlots.push(newSlot);
+  return newSlot;
 };
 
 export const bookAdSlot = async (
@@ -205,6 +221,21 @@ export const markNotificationAsRead = async (notificationId: string): Promise<No
   db.notifications[notificationIndex] = updatedNotification;
   
   return updatedNotification;
+};
+
+export const markAllNotificationsAsRead = async (userId: string): Promise<Notification[]> => {
+  await delay(500);
+  
+  const userNotifications = db.notifications.filter(n => n.userId === userId);
+  
+  userNotifications.forEach(notification => {
+    const index = db.notifications.findIndex(n => n.id === notification.id);
+    if (index !== -1) {
+      db.notifications[index] = { ...notification, read: true };
+    }
+  });
+  
+  return db.notifications.filter(n => n.userId === userId);
 };
 
 // Performance Metrics
