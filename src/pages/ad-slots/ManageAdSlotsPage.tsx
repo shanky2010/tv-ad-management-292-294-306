@@ -28,7 +28,7 @@ const ManageAdSlotsPage: React.FC = () => {
                 <div className="flex items-center">
                   <Calendar className="h-5 w-5 mr-3 text-muted-foreground" />
                   <div>
-                    <p className="font-medium">{slot.name}</p>
+                    <p className="font-medium">{slot.title}</p>
                     <p className="text-sm text-muted-foreground">
                       {new Date(slot.startTime).toLocaleString()} - {new Date(slot.endTime).toLocaleString()}
                     </p>
