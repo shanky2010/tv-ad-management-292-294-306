@@ -1,9 +1,5 @@
 
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, orderBy, getDocs, addDoc, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,10 +11,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Plus, Trash, Edit, Film } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { fetchAds, createAd } from '@/services/mockApi';
+import { Ad } from '@/types';
 
 const MyAdsPage: React.FC = () => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  
+  // State for the ad list
+  const [ads, setAds] = useState<Ad[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   
   // State for the new ad form
   const [adTitle, setAdTitle] = useState('');
@@ -34,84 +36,25 @@ const MyAdsPage: React.FC = () => {
   const [editAdDescription, setEditAdDescription] = useState('');
   const [showEditDialog, setShowEditDialog] = useState(false);
   
-  // Query to fetch ads
-  const { data: ads = [], isLoading } = useQuery({
-    queryKey: ['ads', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
+  // Load ads when component mounts
+  useEffect(() => {
+    const loadAds = async () => {
+      if (!user) return;
       
-      const q = query(
-        collection(db, 'ads'),
-        where('advertiserId', '==', user.id),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const adsList: any[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        adsList.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt.toDate(),
-        });
-      });
-      
-      return adsList;
-    },
-    enabled: !!user?.id,
-  });
-  
-  // Mutation to create a new ad
-  const createAdMutation = useMutation({
-    mutationFn: async (newAd: any) => {
-      return await addDoc(collection(db, 'ads'), newAd);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ads', user?.id] });
-      setAdTitle('');
-      setAdDescription('');
-      setAdFile(null);
-      setPreviewData(null);
-      setAdType('image');
-      toast.success('Ad created successfully!');
-    },
-    onError: () => {
-      toast.error('Failed to create ad. Please try again.');
-    },
-  });
-  
-  // Mutation to update an ad
-  const updateAdMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const adRef = doc(db, 'ads', id);
-      return await updateDoc(adRef, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ads', user?.id] });
-      setShowEditDialog(false);
-      toast.success('Ad updated successfully!');
-    },
-    onError: () => {
-      toast.error('Failed to update ad. Please try again.');
-    },
-  });
-  
-  // Mutation to delete an ad
-  const deleteAdMutation = useMutation({
-    mutationFn: async (adId: string) => {
-      const adRef = doc(db, 'ads', adId);
-      return await deleteDoc(adRef);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ads', user?.id] });
-      toast.success('Ad deleted successfully!');
-    },
-    onError: () => {
-      toast.error('Failed to delete ad. Please try again.');
-    },
-  });
+      setIsLoading(true);
+      try {
+        const adsData = await fetchAds(user.id);
+        setAds(adsData);
+      } catch (error) {
+        console.error('Error fetching ads:', error);
+        toast.error('Failed to load ads');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadAds();
+  }, [user]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -128,7 +71,7 @@ const MyAdsPage: React.FC = () => {
       
       // Check file size (limit to 5MB for base64)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size must be less than 5MB when not using Firebase Storage');
+        toast.error('File size must be less than 5MB');
         return;
       }
       
@@ -148,7 +91,11 @@ const MyAdsPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user) return;
+    if (!user) {
+      toast.error('You must be logged in to create an ad');
+      return;
+    }
+    
     if (!adFile || !previewData) {
       toast.error('Please select a file to upload');
       return;
@@ -157,6 +104,8 @@ const MyAdsPage: React.FC = () => {
     setIsProcessing(true);
     
     try {
+      console.log('Creating new ad:', { title: adTitle, type: adType });
+      
       // Create thumbnail for video if needed
       let thumbnailData = null;
       if (adType === 'video') {
@@ -164,56 +113,81 @@ const MyAdsPage: React.FC = () => {
       }
       
       // Create ad document with base64 data
-      const newAd = {
+      const newAd = await createAd({
         title: adTitle,
         description: adDescription,
         type: adType,
         fileData: previewData,
         thumbnailData: thumbnailData,
         advertiserId: user.id,
-        advertiserName: user.name,
-        createdAt: Timestamp.now(),
-        status: 'active'
-      };
+        advertiserName: user.name
+      });
       
-      createAdMutation.mutate(newAd);
+      // Add to the ads list
+      setAds(prevAds => [newAd, ...prevAds]);
+      
+      // Reset form
+      setAdTitle('');
+      setAdDescription('');
+      setAdFile(null);
+      setPreviewData(null);
+      setAdType('image');
+      
+      toast.success('Ad created successfully!');
     } catch (error) {
       console.error('Error creating ad:', error);
-      toast.error('Failed to process file. Please try again.');
+      toast.error('Failed to create ad. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
   
-  const handleEditAd = (ad: any) => {
+  const handleEditAd = (ad: Ad) => {
     setEditAdId(ad.id);
     setEditAdTitle(ad.title);
     setEditAdDescription(ad.description);
     setShowEditDialog(true);
   };
   
-  const handleUpdateAd = () => {
+  const handleUpdateAd = async () => {
     if (!editAdId) return;
     
-    updateAdMutation.mutate({
-      id: editAdId,
-      data: {
-        title: editAdTitle,
-        description: editAdDescription,
-        updatedAt: Timestamp.now(),
-      }
-    });
+    try {
+      // Update ad in the local state for now
+      setAds(prevAds => 
+        prevAds.map(ad => 
+          ad.id === editAdId 
+            ? { ...ad, title: editAdTitle, description: editAdDescription }
+            : ad
+        )
+      );
+      
+      toast.success('Ad updated successfully!');
+      setShowEditDialog(false);
+    } catch (error) {
+      console.error('Error updating ad:', error);
+      toast.error('Failed to update ad. Please try again.');
+    }
   };
   
   const handleDeleteAd = (adId: string) => {
     if (window.confirm('Are you sure you want to delete this ad?')) {
-      deleteAdMutation.mutate(adId);
+      try {
+        // Remove from local state for now
+        setAds(prevAds => prevAds.filter(ad => ad.id !== adId));
+        toast.success('Ad deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting ad:', error);
+        toast.error('Failed to delete ad. Please try again.');
+      }
     }
   };
   
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Ads</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">My Ads</h2>
+      </div>
       
       <Tabs defaultValue="ads" className="w-full">
         <TabsList className="mb-6">

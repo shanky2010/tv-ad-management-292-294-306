@@ -61,6 +61,7 @@ export const register = async (
 // Ad Slots
 export const fetchAdSlots = async (): Promise<AdSlot[]> => {
   await delay(800);
+  console.log('Fetching ad slots, total available:', db.adSlots.filter(slot => slot.status === 'available').length);
   return db.adSlots.filter(slot => slot.status === 'available');
 };
 
@@ -80,7 +81,9 @@ export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | '
     status: 'available'
   };
   
+  console.log('Creating new ad slot:', newSlot);
   db.adSlots.push(newSlot);
+  console.log('Total ad slots after creation:', db.adSlots.length);
   return newSlot;
 };
 
@@ -125,6 +128,8 @@ export const bookAdSlot = async (
     }
   };
   
+  console.log('Creating new booking:', booking);
+  
   // Update slot status
   const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
   if (slotIndex !== -1) {
@@ -133,6 +138,7 @@ export const bookAdSlot = async (
   
   // Add booking
   db.bookings.push(booking);
+  console.log('Total bookings after creation:', db.bookings.length);
   
   // Create notification for admin
   const adminNotification: Notification = {
@@ -154,29 +160,38 @@ export const bookAdSlot = async (
 // Ads
 export const fetchAds = async (advertiserId?: string): Promise<Ad[]> => {
   await delay(800);
-  return advertiserId 
+  console.log(`Fetching ads for advertiserId: ${advertiserId || 'all'}`);
+  const filteredAds = advertiserId 
     ? db.ads.filter(ad => ad.advertiserId === advertiserId)
     : db.ads;
+  console.log(`Found ${filteredAds.length} ads`);
+  return filteredAds;
 };
 
-export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt'>): Promise<Ad> => {
+export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Promise<Ad> => {
   await delay(1000);
   const newAd: Ad = {
     ...ad,
     id: `ad-${Date.now()}`,
-    createdAt: new Date()
+    createdAt: new Date(),
+    status: 'active'
   };
   
+  console.log('Creating new ad:', { id: newAd.id, title: newAd.title, type: newAd.type });
   db.ads.push(newAd);
+  console.log('Total ads after creation:', db.ads.length);
   return newAd;
 };
 
 // Bookings
 export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> => {
   await delay(800);
-  return advertiserId 
+  console.log(`Fetching bookings for advertiserId: ${advertiserId || 'all'}`);
+  const filteredBookings = advertiserId 
     ? db.bookings.filter(booking => booking.advertiserId === advertiserId)
     : db.bookings;
+  console.log(`Found ${filteredBookings.length} bookings`);
+  return filteredBookings;
 };
 
 export const updateBookingStatus = async (
@@ -191,6 +206,8 @@ export const updateBookingStatus = async (
   const booking = db.bookings[bookingIndex];
   const updatedBooking = { ...booking, status };
   db.bookings[bookingIndex] = updatedBooking;
+  
+  console.log(`Updated booking ${bookingId} status to ${status}`);
   
   // Create notification for advertiser
   const advertiserNotification: Notification = {

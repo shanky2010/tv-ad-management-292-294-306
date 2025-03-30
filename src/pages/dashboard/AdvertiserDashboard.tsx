@@ -1,76 +1,53 @@
 
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChartContainer } from '@/components/ui/chart';
-import { AreaChart, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, Bar } from 'recharts';
+import { useAuth } from '@/context/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { fetchBookings, fetchAdSlots } from '@/services/mockApi';
 import { Booking, AdSlot } from '@/types';
-import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { Calendar, BookOpen, Film, TrendingUp } from 'lucide-react';
+import { 
+  AreaChart, 
+  BarChart, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Area, 
+  Bar,
+  ResponsiveContainer
+} from 'recharts';
+import { format } from 'date-fns';
 
 const AdvertiserDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AdSlot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Fetch recent bookings
-  const { data: recentBookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ['recentBookings', user?.id],
-    queryFn: async () => {
-      const q = query(
-        collection(db, 'bookings'),
-        where('advertiserId', '==', user?.id),
-        orderBy('createdAt', 'desc'),
-        limit(3)
-      );
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
       
-      const querySnapshot = await getDocs(q);
-      const bookings: Booking[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        bookings.push({
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt.toDate(),
-        } as Booking);
-      });
-      
-      return bookings;
-    },
-    enabled: !!user?.id,
-  });
-  
-  // Fetch available ad slots
-  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery({
-    queryKey: ['availableSlots'],
-    queryFn: async () => {
-      const q = query(
-        collection(db, 'adSlots'),
-        where('status', '==', 'available'),
-        orderBy('startTime'),
-        limit(3)
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const slots: AdSlot[] = [];
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        slots.push({
-          id: doc.id,
-          ...data,
-          startTime: data.startTime.toDate(),
-          endTime: data.endTime.toDate(),
-        } as AdSlot);
-      });
-      
-      return slots;
-    },
-  });
+      setIsLoading(true);
+      try {
+        // Fetch bookings and available slots
+        const bookingsData = await fetchBookings(user.id);
+        const slotsData = await fetchAdSlots();
+        
+        setRecentBookings(bookingsData.slice(0, 3));
+        setAvailableSlots(slotsData.slice(0, 3));
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [user]);
   
   // Performance data (mock data - would be replaced with actual data)
   const performanceData = [
@@ -90,10 +67,13 @@ const AdvertiserDashboard: React.FC = () => {
   ];
   
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold mb-6">Advertiser Dashboard</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Advertiser Dashboard</h2>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Stats Overview Cards */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
@@ -136,78 +116,63 @@ const AdvertiserDashboard: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Performance Overview Chart */}
         <Card className="col-span-2">
           <CardHeader>
             <CardTitle>Performance Overview</CardTitle>
             <CardDescription>Daily viewership over the last 7 days</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer 
-              className="h-[300px]"
-              config={{
-                views: {
-                  label: "Views",
-                  theme: {
-                    light: "hsl(var(--primary))",
-                    dark: "hsl(var(--primary))",
-                  },
-                },
-              }}
-            >
-              <AreaChart 
-                data={performanceData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" />
-                <YAxis />
-                <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip />
-                <Area type="monotone" dataKey="views" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorViews)" />
-              </AreaChart>
-            </ChartContainer>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart 
+                  data={performanceData}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="views" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorViews)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
         
+        {/* Channel Performance Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Channel Performance</CardTitle>
             <CardDescription>Views by channel</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer 
-              className="h-[300px]"
-              config={{
-                views: {
-                  label: "Views",
-                  theme: {
-                    light: "hsl(var(--primary))",
-                    dark: "hsl(var(--primary))",
-                  },
-                },
-              }}
-            >
-              <BarChart
-                data={channelPerformance}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-              >
-                <XAxis dataKey="channel" />
-                <YAxis />
-                <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip />
-                <Bar dataKey="views" fill="hsl(var(--primary))" />
-              </BarChart>
-            </ChartContainer>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={channelPerformance}
+                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                >
+                  <XAxis dataKey="channel" />
+                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <Tooltip />
+                  <Bar dataKey="views" fill="hsl(var(--primary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Recent Bookings */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
@@ -217,7 +182,7 @@ const AdvertiserDashboard: React.FC = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {bookingsLoading ? (
+            {isLoading ? (
               <div className="flex justify-center py-4">
                 <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
               </div>
@@ -233,7 +198,9 @@ const AdvertiserDashboard: React.FC = () => {
                       <div>
                         <p className="font-medium">{booking.adTitle}</p>
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(booking.createdAt), 'MMM d, yyyy')}
+                          {typeof booking.createdAt === 'string' 
+                            ? format(new Date(booking.createdAt), 'MMM d, yyyy') 
+                            : format(booking.createdAt, 'MMM d, yyyy')}
                         </p>
                       </div>
                       <div className={`text-xs font-medium px-2 py-1 rounded-full ${
@@ -255,6 +222,7 @@ const AdvertiserDashboard: React.FC = () => {
           </CardContent>
         </Card>
         
+        {/* Available Slots */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
@@ -264,7 +232,7 @@ const AdvertiserDashboard: React.FC = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {slotsLoading ? (
+            {isLoading ? (
               <div className="flex justify-center py-4">
                 <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
               </div>
@@ -282,7 +250,9 @@ const AdvertiserDashboard: React.FC = () => {
                         {slot.channelName} - ${slot.price.toLocaleString()}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(slot.startTime), 'MMM d, h:mm a')}
+                        {typeof slot.startTime === 'string'
+                          ? format(new Date(slot.startTime), 'MMM d, h:mm a')
+                          : format(slot.startTime, 'MMM d, h:mm a')}
                       </p>
                     </div>
                   </div>
@@ -295,6 +265,7 @@ const AdvertiserDashboard: React.FC = () => {
           </CardContent>
         </Card>
         
+        {/* Quick Actions */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
