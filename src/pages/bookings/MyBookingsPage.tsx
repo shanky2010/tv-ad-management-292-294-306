@@ -1,66 +1,37 @@
 
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Booking, AdSlot } from '@/types';
+import { Booking } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Calendar, Clock, Tv, DollarSign } from 'lucide-react';
+import { fetchBookings } from '@/services/mockApi';
 
 const MyBookingsPage: React.FC = () => {
   const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const { data: bookings = [], isLoading } = useQuery({
-    queryKey: ['bookings', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
+  useEffect(() => {
+    const loadBookings = async () => {
+      if (!user?.id) return;
       
-      const q = query(
-        collection(db, 'bookings'),
-        where('advertiserId', '==', user.id),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const bookingList: Booking[] = [];
-      
-      for (const docSnap of querySnapshot.docs) {
-        const data = docSnap.data();
-        
-        // Fetch ad slot details
-        const slotDoc = await getDoc(doc(db, 'adSlots', data.slotId));
-        const slotDetails = slotDoc.exists() ? slotDoc.data() : null;
-        
-        bookingList.push({
-          id: docSnap.id,
-          ...data,
-          createdAt: data.createdAt.toDate(),
-          adTitle: data.adTitle || 'Untitled Ad',
-          adDescription: data.adDescription || '',
-          slotId: data.slotId,
-          advertiserId: data.advertiserId,
-          advertiserName: data.advertiserName || user.name,
-          status: data.status || 'pending',
-          adId: data.adId || null,
-          slotDetails: slotDetails ? {
-            channelName: slotDetails.channelName,
-            startTime: slotDetails.startTime.toDate(),
-            endTime: slotDetails.endTime.toDate(),
-            price: slotDetails.price,
-            durationSeconds: slotDetails.durationSeconds
-          } : undefined
-        });
+      try {
+        setIsLoading(true);
+        const fetchedBookings = await fetchBookings(user.id);
+        setBookings(fetchedBookings);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      return bookingList;
-    },
-    enabled: !!user?.id,
-  });
+    };
+    
+    loadBookings();
+  }, [user?.id]);
   
   const filteredBookings = bookings.filter(booking => 
     statusFilter === 'all' || booking.status === statusFilter
@@ -182,11 +153,11 @@ const MyBookingsPage: React.FC = () => {
                         </div>
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{format(booking.slotDetails.startTime, 'PP')}</span>
+                          <span>{format(new Date(booking.slotDetails.startTime), 'PP')}</span>
                         </div>
                         <div className="flex items-center">
                           <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{format(booking.slotDetails.startTime, 'p')} - {format(booking.slotDetails.endTime, 'p')}</span>
+                          <span>{format(new Date(booking.slotDetails.startTime), 'p')} - {format(new Date(booking.slotDetails.endTime), 'p')}</span>
                         </div>
                       </div>
                     </div>

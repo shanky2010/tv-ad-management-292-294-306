@@ -11,58 +11,65 @@ import { AdSlot, Ad } from '@/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { getAdSlot, fetchAds, bookAdSlot } from '@/services/mockApi';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const BookSlotPage: React.FC = () => {
   const { slotId } = useParams<{ slotId: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  const [adSlot, setAdSlot] = useState<AdSlot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const queryClient = useQueryClient();
   
   // Form state
   const [adTitle, setAdTitle] = useState('');
   const [adDescription, setAdDescription] = useState('');
   const [selectedAd, setSelectedAd] = useState('');
-  const [userAds, setUserAds] = useState<Ad[]>([]);
   
-  useEffect(() => {
-    const fetchSlotDetails = async () => {
-      if (!slotId) return;
-      
-      try {
-        const fetchedSlot = await getAdSlot(slotId);
-        
-        if (fetchedSlot) {
-          setAdSlot(fetchedSlot);
-        } else {
-          toast.error('Ad slot not found');
-          navigate('/ad-slots');
-        }
-      } catch (error) {
-        console.error('Error fetching slot:', error);
-        toast.error('Failed to load slot details');
-      } finally {
-        setLoading(false);
+  // Fetch ad slot details
+  const { 
+    data: adSlot,
+    isLoading: slotLoading,
+    error: slotError 
+  } = useQuery({
+    queryKey: ['adSlot', slotId],
+    queryFn: () => slotId ? getAdSlot(slotId) : null,
+    enabled: !!slotId
+  });
+  
+  // Fetch user's ads
+  const { 
+    data: userAds = [],
+    isLoading: adsLoading
+  } = useQuery({
+    queryKey: ['userAds', user?.id],
+    queryFn: () => user?.id ? fetchAds(user.id) : [],
+    enabled: !!user?.id
+  });
+  
+  // Book slot mutation
+  const bookSlotMutation = useMutation({
+    mutationFn: () => {
+      if (!user || !adSlot || !slotId) {
+        throw new Error('Missing required data');
       }
-    };
-    
-    const fetchUserAds = async () => {
-      if (!user?.id) return;
       
-      try {
-        const ads = await fetchAds(user.id);
-        setUserAds(ads);
-      } catch (error) {
-        console.error('Error fetching user ads:', error);
-        toast.error('Failed to load your ads');
-      }
-    };
-    
-    fetchSlotDetails();
-    fetchUserAds();
-  }, [slotId, user?.id, navigate]);
+      return bookAdSlot(
+        slotId,
+        user.id,
+        selectedAd,
+        adTitle,
+        adDescription
+      );
+    },
+    onSuccess: () => {
+      toast.success('Booking submitted successfully!');
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      navigate('/my-bookings');
+    },
+    onError: (error) => {
+      console.error('Error booking slot:', error);
+      toast.error('Failed to book slot. Please try again.');
+    }
+  });
   
   // Handle ad selection
   const handleAdSelect = (adId: string) => {
@@ -73,36 +80,24 @@ const BookSlotPage: React.FC = () => {
         setAdTitle(selectedAd.title);
         setAdDescription(selectedAd.description);
       }
+    } else {
+      setAdTitle('');
+      setAdDescription('');
     }
   };
   
   const handleBookSlot = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!user || !adSlot) return;
-    
-    setSubmitting(true);
-    
-    try {
-      await bookAdSlot(
-        adSlot.id,
-        user.id,
-        selectedAd,
-        adTitle,
-        adDescription
-      );
-      
-      toast.success('Booking submitted successfully!');
-      navigate('/my-bookings');
-    } catch (error) {
-      console.error('Error booking slot:', error);
-      toast.error('Failed to book slot. Please try again.');
-    } finally {
-      setSubmitting(false);
+    if (!adTitle.trim() || !adDescription.trim()) {
+      toast.error('Please provide an ad title and description');
+      return;
     }
+    
+    bookSlotMutation.mutate();
   };
   
-  if (loading) {
+  if (slotLoading || adsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
@@ -110,7 +105,7 @@ const BookSlotPage: React.FC = () => {
     );
   }
   
-  if (!adSlot) {
+  if (slotError || !adSlot) {
     return (
       <div className="container mx-auto px-4 py-10">
         <div className="text-center">
@@ -224,8 +219,12 @@ const BookSlotPage: React.FC = () => {
               <Button variant="outline" type="button" onClick={() => navigate('/ad-slots')} className="w-full sm:w-auto">
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-                {submitting ? 'Booking...' : 'Book Slot'}
+              <Button 
+                type="submit" 
+                disabled={bookSlotMutation.isPending} 
+                className="w-full sm:w-auto"
+              >
+                {bookSlotMutation.isPending ? 'Booking...' : 'Book Slot'}
               </Button>
             </CardFooter>
           </Card>

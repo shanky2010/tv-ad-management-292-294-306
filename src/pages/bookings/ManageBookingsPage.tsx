@@ -7,61 +7,79 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { fetchBookings, updateBookingStatus } from '@/services/mockApi';
 import { Booking } from '@/types';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const ManageBookingsPage: React.FC = () => {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   
-  useEffect(() => {
-    const getBookings = async () => {
-      try {
-        const fetchedBookings = await fetchBookings();
-        setBookings(fetchedBookings);
-      } catch (error) {
-        console.error('Error fetching bookings:', error);
-        toast.error('Failed to load bookings');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    getBookings();
-  }, []);
+  // Fetch all bookings
+  const { 
+    data: bookings = [], 
+    isLoading,
+    isError 
+  } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: fetchBookings
+  });
   
-  const handleApprove = async (bookingId: string) => {
-    try {
-      const updatedBooking = await updateBookingStatus(bookingId, 'approved');
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? updatedBooking : booking
-      ));
-      toast.success('Booking approved successfully');
-    } catch (error) {
-      console.error('Error approving booking:', error);
-      toast.error('Failed to approve booking');
+  // Mutation for approving/rejecting bookings
+  const updateBookingMutation = useMutation({
+    mutationFn: ({ bookingId, status }: { bookingId: string, status: 'approved' | 'rejected' }) => 
+      updateBookingStatus(bookingId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
     }
+  });
+  
+  const handleApprove = (bookingId: string) => {
+    updateBookingMutation.mutate(
+      { bookingId, status: 'approved' },
+      {
+        onSuccess: () => {
+          toast.success('Booking approved successfully');
+        },
+        onError: (error) => {
+          console.error('Error approving booking:', error);
+          toast.error('Failed to approve booking');
+        }
+      }
+    );
   };
   
-  const handleReject = async (bookingId: string) => {
-    try {
-      const updatedBooking = await updateBookingStatus(bookingId, 'rejected');
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? updatedBooking : booking
-      ));
-      toast.success('Booking rejected successfully');
-    } catch (error) {
-      console.error('Error rejecting booking:', error);
-      toast.error('Failed to reject booking');
-    }
+  const handleReject = (bookingId: string) => {
+    updateBookingMutation.mutate(
+      { bookingId, status: 'rejected' },
+      {
+        onSuccess: () => {
+          toast.success('Booking rejected successfully');
+        },
+        onError: (error) => {
+          console.error('Error rejecting booking:', error);
+          toast.error('Failed to reject booking');
+        }
+      }
+    );
   };
   
   const pendingBookings = bookings.filter(booking => booking.status === 'pending');
   const approvedBookings = bookings.filter(booking => booking.status === 'approved');
   const rejectedBookings = bookings.filter(booking => booking.status === 'rejected');
   
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
+  
+  if (isError) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-xl font-semibold mb-2">Error loading bookings</h3>
+        <p className="text-muted-foreground">
+          There was a problem loading the booking requests. Please try again later.
+        </p>
       </div>
     );
   }
@@ -98,6 +116,7 @@ const ManageBookingsPage: React.FC = () => {
                       size="sm" 
                       className="flex items-center"
                       onClick={() => handleApprove(booking.id)}
+                      disabled={updateBookingMutation.isPending}
                     >
                       <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
                       Approve
@@ -107,6 +126,7 @@ const ManageBookingsPage: React.FC = () => {
                       size="sm" 
                       className="flex items-center"
                       onClick={() => handleReject(booking.id)}
+                      disabled={updateBookingMutation.isPending}
                     >
                       <XCircle className="mr-2 h-4 w-4 text-red-500" />
                       Reject

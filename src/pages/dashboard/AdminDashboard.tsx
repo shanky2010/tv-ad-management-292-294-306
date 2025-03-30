@@ -1,12 +1,14 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, FileVideo, BarChart, Users, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { mockAdSlots, mockBookings } from '@/data/mockData';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { fetchAdSlots, fetchBookings, updateBookingStatus } from '@/services/mockApi';
+import { Booking, AdSlot } from '@/types';
+import { toast } from 'sonner';
 import { 
   BarChart as ChartComponent, 
   Bar, 
@@ -23,12 +25,65 @@ import {
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
+  const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [fetchedSlots, fetchedBookings] = await Promise.all([
+          fetchAdSlots(),
+          fetchBookings()
+        ]);
+        
+        setAdSlots(fetchedSlots);
+        setBookings(fetchedBookings);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+  
+  // Handle booking approval
+  const handleApprove = async (bookingId: string) => {
+    try {
+      const updatedBooking = await updateBookingStatus(bookingId, 'approved');
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId ? updatedBooking : booking
+      ));
+      toast.success('Booking approved successfully');
+    } catch (error) {
+      console.error('Error approving booking:', error);
+      toast.error('Failed to approve booking');
+    }
+  };
+  
+  // Handle booking rejection
+  const handleReject = async (bookingId: string) => {
+    try {
+      const updatedBooking = await updateBookingStatus(bookingId, 'rejected');
+      setBookings(bookings.map(booking => 
+        booking.id === bookingId ? updatedBooking : booking
+      ));
+      toast.success('Booking rejected successfully');
+    } catch (error) {
+      console.error('Error rejecting booking:', error);
+      toast.error('Failed to reject booking');
+    }
+  };
   
   // Count statistics
-  const totalSlots = mockAdSlots.length;
-  const availableSlots = mockAdSlots.filter(slot => slot.status === 'available').length;
-  const bookedSlots = mockAdSlots.filter(slot => slot.status === 'booked').length;
-  const pendingApprovals = mockBookings.filter(booking => booking.status === 'pending').length;
+  const totalSlots = adSlots.length;
+  const availableSlots = adSlots.filter(slot => slot.status === 'available').length;
+  const bookedSlots = adSlots.filter(slot => slot.status === 'booked').length;
+  const pendingApprovals = bookings.filter(booking => booking.status === 'pending').length;
   
   // Performance data
   const performanceData = [
@@ -48,6 +103,14 @@ const AdminDashboard: React.FC = () => {
   
   // Pie chart colors
   const COLORS = ['#0088FE', '#00C49F'];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -79,7 +142,7 @@ const AdminDashboard: React.FC = () => {
             <FileVideo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockBookings.length}</div>
+            <div className="text-2xl font-bold">{bookings.length}</div>
             <p className="text-xs text-muted-foreground">{pendingApprovals} pending approval</p>
           </CardContent>
         </Card>
@@ -177,7 +240,7 @@ const AdminDashboard: React.FC = () => {
         <CardContent>
           {pendingApprovals > 0 ? (
             <div className="space-y-4">
-              {mockBookings
+              {bookings
                 .filter(booking => booking.status === 'pending')
                 .map(booking => (
                   <div key={booking.id} className="flex items-center justify-between border-b pb-4">
@@ -192,11 +255,21 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="flex items-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center"
+                        onClick={() => handleApprove(booking.id)}
+                      >
                         <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
                         Approve
                       </Button>
-                      <Button variant="outline" size="sm" className="flex items-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex items-center"
+                        onClick={() => handleReject(booking.id)}
+                      >
                         <XCircle className="mr-2 h-4 w-4 text-red-500" />
                         Reject
                       </Button>
