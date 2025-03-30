@@ -27,26 +27,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Check if user is already logged in from localStorage
+  // Improved user session persistence with better error handling
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
+    const loadStoredUser = () => {
       try {
-        setUser(JSON.parse(storedUser));
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          // Validate that the parsed object has the expected structure
+          if (parsedUser && 
+              typeof parsedUser === 'object' && 
+              'id' in parsedUser && 
+              'name' in parsedUser && 
+              'email' in parsedUser && 
+              'role' in parsedUser) {
+            setUser(parsedUser);
+            console.log('User loaded from localStorage:', parsedUser);
+          } else {
+            console.error('Invalid user data structure in localStorage');
+            localStorage.removeItem('user');
+          }
+        }
       } catch (error) {
         console.error('Failed to parse stored user:', error);
         localStorage.removeItem('user');
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    loadStoredUser();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const user = await loginApi(email, password);
       if (user) {
+        // Ensure we're setting the user in state AND localStorage
         setUser(user);
         localStorage.setItem('user', JSON.stringify(user));
+        console.log('User logged in and stored in localStorage:', user);
+        
         toast({
           title: "Login successful!",
           description: `Welcome back, ${user.name}!`,
@@ -79,13 +100,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ): Promise<boolean> => {
     try {
       const newUser = await registerApi(email, password, name, role);
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      toast({
-        title: "Registration successful!",
-        description: `Welcome to Adversify, ${newUser.name}!`,
-      });
-      return true;
+      if (newUser) {
+        // Ensure we're setting the user in state AND localStorage
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        console.log('User registered and stored in localStorage:', newUser);
+        
+        toast({
+          title: "Registration successful!",
+          description: `Welcome to Adversify, ${newUser.name}!`,
+        });
+        return true;
+      }
+      return false;
     } catch (error) {
       toast({
         title: "Registration error",

@@ -38,7 +38,10 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 // Authentication
 export const login = async (email: string, password: string): Promise<User | null> => {
   await delay(800); // Simulate network delay
-  return loginMock(email, password);
+  console.log(`Login attempt for email: ${email}`);
+  const user = loginMock(email, password);
+  console.log('Login result:', user);
+  return user;
 };
 
 export const register = async (
@@ -48,8 +51,10 @@ export const register = async (
   role: UserRole
 ): Promise<User> => {
   await delay(1000); // Simulate network delay
+  console.log(`Registration for email: ${email}, name: ${name}, role: ${role}`);
   const newUser = registerMock(email, password, name, role);
   db.users.push(newUser);
+  console.log('New user registered:', newUser);
   return newUser;
 };
 

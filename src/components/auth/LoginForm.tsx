@@ -19,10 +19,16 @@ export const LoginForm: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      console.log('Attempting login with:', { email });
       const success = await login(email, password);
       if (success) {
+        console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
+      } else {
+        console.log('Login failed');
       }
+    } catch (error) {
+      console.error('Error during login submission:', error);
     } finally {
       setIsSubmitting(false);
     }
