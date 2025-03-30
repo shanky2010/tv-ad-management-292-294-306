@@ -103,7 +103,12 @@ export const bookAdSlot = async (
   // Find the slot
   const slot = db.adSlots.find(slot => slot.id === slotId);
   if (!slot) throw new Error('Ad slot not found');
-  if (slot.status !== 'available') throw new Error('Ad slot is not available');
+  
+  // Verify that the slot is still available (important double-check)
+  if (slot.status !== 'available') {
+    console.error(`Attempt to book unavailable slot: ${slotId}, current status: ${slot.status}`);
+    throw new Error('Ad slot is not available');
+  }
   
   // Find the ad
   const ad = adId ? db.ads.find(ad => ad.id === adId) : null;
