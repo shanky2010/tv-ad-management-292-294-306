@@ -12,14 +12,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 const ManageBookingsPage: React.FC = () => {
   const queryClient = useQueryClient();
   
-  // Fetch all bookings
+  // Fetch all bookings - fixed the queryFn to properly work with React Query
   const { 
     data: bookings = [], 
     isLoading,
     isError 
   } = useQuery({
     queryKey: ['bookings'],
-    queryFn: fetchBookings
+    queryFn: async () => {
+      return await fetchBookings();
+    }
   });
   
   // Mutation for approving/rejecting bookings
