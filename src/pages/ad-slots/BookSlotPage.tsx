@@ -25,6 +25,7 @@ const BookSlotPage: React.FC = () => {
   const [adDescription, setAdDescription] = useState('');
   const [selectedAd, setSelectedAd] = useState('');
   const [slotUnavailable, setSlotUnavailable] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Fetch ad slot details
   const { 
@@ -60,13 +61,18 @@ const BookSlotPage: React.FC = () => {
   // Book slot mutation
   const bookSlotMutation = useMutation({
     mutationFn: async () => {
+      setIsProcessing(true);
+      console.log("Current user:", user);
+      
       if (!user || !adSlot || !slotId) {
+        setIsProcessing(false);
         throw new Error('Missing required data');
       }
       
       // Double check that the slot is still available
       const currentSlot = await getAdSlot(slotId);
       if (currentSlot?.status !== 'available') {
+        setIsProcessing(false);
         throw new Error('Ad slot is no longer available');
       }
       
@@ -79,18 +85,20 @@ const BookSlotPage: React.FC = () => {
       );
     },
     onSuccess: () => {
+      setIsProcessing(false);
       toast.success('Booking submitted successfully!');
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
       queryClient.invalidateQueries({ queryKey: ['adSlot', slotId] });
       navigate('/my-bookings');
     },
     onError: (error: Error) => {
+      setIsProcessing(false);
       console.error('Error booking slot:', error);
       if (error.message.includes('not available')) {
         setSlotUnavailable(true);
         toast.error('This ad slot is no longer available');
       } else {
-        toast.error('Failed to book slot. Please try again.');
+        toast.error(`Failed to book slot: ${error.message}`);
       }
     }
   });
@@ -123,6 +131,12 @@ const BookSlotPage: React.FC = () => {
       return;
     }
     
+    if (!user) {
+      toast.error('You must be logged in to book a slot');
+      return;
+    }
+    
+    console.log('Submitting booking with user ID:', user.id);
     bookSlotMutation.mutate();
   };
   
@@ -271,10 +285,10 @@ const BookSlotPage: React.FC = () => {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={bookSlotMutation.isPending || slotUnavailable} 
+                  disabled={bookSlotMutation.isPending || isProcessing || slotUnavailable} 
                   className="w-full sm:w-auto"
                 >
-                  {bookSlotMutation.isPending ? 'Booking...' : 'Book Slot'}
+                  {bookSlotMutation.isPending || isProcessing ? 'Booking...' : 'Book Slot'}
                 </Button>
               </CardFooter>
             </Card>

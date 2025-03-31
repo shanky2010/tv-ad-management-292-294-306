@@ -1,4 +1,3 @@
-
 import {
   User,
   AdSlot,
@@ -96,10 +95,88 @@ export const bookAdSlot = async (
 ): Promise<Booking> => {
   await delay(1000);
   
+  console.log(`Attempting to book slot ${slotId} for advertiser ${advertiserId}`);
+  console.log('Current users in DB:', db.users.map(u => ({ id: u.id, name: u.name })));
+  
   // Find the user
   const advertiser = db.users.find(user => user.id === advertiserId);
-  if (!advertiser) throw new Error('Advertiser not found');
+  if (!advertiser) {
+    console.error(`Advertiser with ID ${advertiserId} not found`);
+    
+    // If we can't find the user in the db array, we'll create a fallback user
+    // This is a workaround for the issue where localStorage has a user that isn't in our mock DB
+    const fallbackUser: User = {
+      id: advertiserId,
+      name: "Advertiser",
+      email: "advertiser@example.com",
+      role: "advertiser",
+      avatar: "/avatars/advertiser.png"
+    };
+    
+    // Add to DB for future use
+    db.users.push(fallbackUser);
+    console.log('Added fallback user to DB:', fallbackUser);
+    
+    // Find the slot
+    const slot = db.adSlots.find(slot => slot.id === slotId);
+    if (!slot) throw new Error('Ad slot not found');
+    
+    // Verify that the slot is still available
+    if (slot.status !== 'available') {
+      console.error(`Attempt to book unavailable slot: ${slotId}, current status: ${slot.status}`);
+      throw new Error('Ad slot is not available');
+    }
+    
+    // Create booking with fallback user
+    const booking: Booking = {
+      id: `booking-${Date.now()}`,
+      slotId,
+      advertiserId,
+      advertiserName: fallbackUser.name,
+      adId: adId || null,
+      adTitle: adTitle || '',
+      adDescription: adDescription || '',
+      status: 'pending',
+      createdAt: new Date(),
+      slotDetails: {
+        channelName: slot.channelName,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        price: slot.price,
+        durationSeconds: slot.durationSeconds
+      }
+    };
+    
+    console.log('Creating new booking with fallback user:', booking);
+    
+    // Update slot status
+    const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
+    if (slotIndex !== -1) {
+      db.adSlots[slotIndex] = { ...slot, status: 'booked' };
+    }
+    
+    // Add booking
+    db.bookings.push(booking);
+    console.log('Total bookings after creation:', db.bookings.length);
+    
+    // Create notification for admin
+    const adminNotification: Notification = {
+      id: `notification-${Date.now()}-admin`,
+      userId: db.users.find(u => u.role === 'admin')?.id || '1',
+      title: 'New Booking Request',
+      message: `${fallbackUser.name} has requested to book ${slot.title}`,
+      type: 'booking_request',
+      read: false,
+      createdAt: new Date(),
+      targetId: booking.id
+    };
+    
+    db.notifications.push(adminNotification);
+    
+    return booking;
+  }
   
+  // Original logic if advertiser is found (keeping the rest the same)
   // Find the slot
   const slot = db.adSlots.find(slot => slot.id === slotId);
   if (!slot) throw new Error('Ad slot not found');
