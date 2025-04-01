@@ -17,6 +17,7 @@ export interface AdSlot {
   title: string;
   description: string;
   channelName: string;
+  channelId: string;  // Added channelId
   startTime: Date;
   endTime: Date;
   durationSeconds: number;

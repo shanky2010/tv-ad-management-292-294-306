@@ -54,17 +54,17 @@ export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | '
     title: slotData.title,
     description: slotData.description,
     channel_name: slotData.channelName,
-    start_time: slotData.startTime,
-    end_time: slotData.endTime,
+    start_time: slotData.startTime.toISOString(), // Convert Date to ISO string
+    end_time: slotData.endTime.toISOString(),     // Convert Date to ISO string
     duration_seconds: slotData.durationSeconds,
     price: slotData.price,
     estimated_viewers: slotData.estimatedViewers,
-    channel_id: slotData.channelId || user.id // Temporary default if channelId not provided
+    channel_id: slotData.channelId || user.id // Use channelId from slotData
   };
   
   const { data, error } = await supabase
     .from('ad_slots')
-    .insert([newSlot])
+    .insert(newSlot)  // Remove array brackets since insert can take a single object
     .select()
     .single();
     
@@ -97,7 +97,7 @@ export const fetchAds = async (advertiserId?: string): Promise<Ad[]> => {
 export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Promise<Ad> => {
   const { data, error } = await supabase
     .from('ads')
-    .insert([{
+    .insert({
       title: ad.title,
       description: ad.description,
       type: ad.type,
@@ -106,7 +106,7 @@ export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Pro
       advertiser_id: ad.advertiserId,
       advertiser_name: ad.advertiserName,
       status: 'active'
-    }])
+    })
     .select()
     .single();
     
