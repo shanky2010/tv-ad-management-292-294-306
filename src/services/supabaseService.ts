@@ -22,7 +22,7 @@ export const fetchAdSlots = async (): Promise<AdSlot[]> => {
     throw error;
   }
   
-  return data as AdSlot[];
+  return data as unknown as AdSlot[];
 };
 
 export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
@@ -37,7 +37,7 @@ export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
     throw error;
   }
   
-  return data as AdSlot;
+  return data as unknown as AdSlot;
 };
 
 export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<AdSlot> => {
@@ -49,9 +49,17 @@ export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | '
   }
   
   const newSlot = {
-    ...slotData,
     status: 'available',
-    created_by: user.id
+    created_by: user.id,
+    title: slotData.title,
+    description: slotData.description,
+    channel_name: slotData.channelName,
+    start_time: slotData.startTime,
+    end_time: slotData.endTime,
+    duration_seconds: slotData.durationSeconds,
+    price: slotData.price,
+    estimated_viewers: slotData.estimatedViewers,
+    channel_id: slotData.channelId || user.id // Temporary default if channelId not provided
   };
   
   const { data, error } = await supabase
@@ -65,7 +73,7 @@ export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | '
     throw error;
   }
   
-  return data as AdSlot;
+  return data as unknown as AdSlot;
 };
 
 // Ads
@@ -83,14 +91,20 @@ export const fetchAds = async (advertiserId?: string): Promise<Ad[]> => {
     throw error;
   }
   
-  return data as Ad[];
+  return data as unknown as Ad[];
 };
 
 export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Promise<Ad> => {
   const { data, error } = await supabase
     .from('ads')
     .insert([{
-      ...ad,
+      title: ad.title,
+      description: ad.description,
+      type: ad.type,
+      file_data: ad.fileData,
+      thumbnail_data: ad.thumbnailData,
+      advertiser_id: ad.advertiserId,
+      advertiser_name: ad.advertiserName,
       status: 'active'
     }])
     .select()
@@ -101,7 +115,7 @@ export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Pro
     throw error;
   }
   
-  return data as Ad;
+  return data as unknown as Ad;
 };
 
 // Bookings
@@ -119,7 +133,7 @@ export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> =
     throw error;
   }
   
-  return data as Booking[];
+  return data as unknown as Booking[];
 };
 
 export const bookAdSlot = async (
@@ -200,7 +214,7 @@ export const bookAdSlot = async (
     .limit(1)
     .single();
     
-  if (adminData) {
+  if (adminData && bookingData) {
     // Create notification for admin
     const adminNotification = {
       user_id: adminData.id,
@@ -216,7 +230,7 @@ export const bookAdSlot = async (
       .insert([adminNotification]);
   }
   
-  return bookingData as Booking;
+  return bookingData as unknown as Booking;
 };
 
 export const updateBookingStatus = async (
@@ -261,7 +275,7 @@ export const updateBookingStatus = async (
     .from('notifications')
     .insert([notification]);
     
-  return data as Booking;
+  return data as unknown as Booking;
 };
 
 // Notifications
@@ -277,7 +291,7 @@ export const fetchNotifications = async (userId: string): Promise<Notification[]
     throw error;
   }
   
-  return data as Notification[];
+  return data as unknown as Notification[];
 };
 
 export const markNotificationAsRead = async (notificationId: string): Promise<Notification> => {
@@ -293,7 +307,7 @@ export const markNotificationAsRead = async (notificationId: string): Promise<No
     throw error;
   }
   
-  return data as Notification;
+  return data as unknown as Notification;
 };
 
 export const markAllNotificationsAsRead = async (userId: string): Promise<Notification[]> => {
@@ -308,7 +322,7 @@ export const markAllNotificationsAsRead = async (userId: string): Promise<Notifi
     throw error;
   }
   
-  return data as Notification[];
+  return data as unknown as Notification[];
 };
 
 // Channels
@@ -322,7 +336,7 @@ export const fetchChannels = async (): Promise<Channel[]> => {
     throw error;
   }
   
-  return data as Channel[];
+  return data as unknown as Channel[];
 };
 
 // Performance Metrics
@@ -340,5 +354,5 @@ export const fetchPerformanceMetrics = async (bookingId?: string): Promise<Perfo
     throw error;
   }
   
-  return data as PerformanceMetric[];
+  return data as unknown as PerformanceMetric[];
 };

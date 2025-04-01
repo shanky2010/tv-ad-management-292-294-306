@@ -27,7 +27,7 @@ import EditAdSlotPage from "./pages/ad-slots/EditAdSlotPage";
 import ManageBookingsPage from "./pages/bookings/ManageBookingsPage";
 import AnalyticsPage from "./pages/analytics/AnalyticsPage";
 
-// Create a new QueryClient with default stale time
+// Create a new QueryClient instance
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,47 +37,50 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <NotificationProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              
-              {/* Protected Routes */}
-              <Route element={<AppShell />}>
-                {/* Common Routes */}
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/settings" element={<SettingsPage />} />
+// Fix: Created a function component instead of using the problematic expression
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <NotificationProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 
-                {/* Advertiser Routes */}
-                <Route path="/ad-slots" element={<AdSlotsPage />} />
-                <Route path="/ad-slots/:slotId/book" element={<BookSlotPage />} />
-                <Route path="/my-bookings" element={<MyBookingsPage />} />
-                <Route path="/my-ads" element={<MyAdsPage />} />
+                {/* Protected Routes */}
+                <Route element={<AppShell />}>
+                  {/* Common Routes */}
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  
+                  {/* Advertiser Routes */}
+                  <Route path="/ad-slots" element={<AdSlotsPage />} />
+                  <Route path="/ad-slots/:slotId/book" element={<BookSlotPage />} />
+                  <Route path="/my-bookings" element={<MyBookingsPage />} />
+                  <Route path="/my-ads" element={<MyAdsPage />} />
+                  
+                  {/* Admin Routes */}
+                  <Route path="/ad-slots/manage" element={<ManageAdSlotsPage />} />
+                  <Route path="/ad-slots/:slotId/edit" element={<EditAdSlotPage />} />
+                  <Route path="/bookings/manage" element={<ManageBookingsPage />} />
+                  <Route path="/analytics" element={<AnalyticsPage />} />
+                </Route>
                 
-                {/* Admin Routes */}
-                <Route path="/ad-slots/manage" element={<ManageAdSlotsPage />} />
-                <Route path="/ad-slots/:slotId/edit" element={<EditAdSlotPage />} />
-                <Route path="/bookings/manage" element={<ManageBookingsPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-              </Route>
-              
-              {/* 404 Page */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </NotificationProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+                {/* 404 Page */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
