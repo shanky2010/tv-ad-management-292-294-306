@@ -14,13 +14,29 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { mockAdSlots, mockBookings } from '@/data/mockData';
+import { fetchAdSlots, fetchBookings } from '@/services/mockApi';
+import { useQuery } from '@tanstack/react-query';
 
 const AnalyticsPage: React.FC = () => {
+  // Fetch ad slots and bookings data
+  const { data: adSlots = [] } = useQuery({
+    queryKey: ['adSlots'],
+    queryFn: async () => {
+      return await fetchAdSlots();
+    }
+  });
+  
+  const { data: bookings = [] } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: async () => {
+      return await fetchBookings();
+    }
+  });
+  
   // Count statistics
-  const totalSlots = mockAdSlots.length;
-  const availableSlots = mockAdSlots.filter(slot => slot.status === 'available').length;
-  const bookedSlots = mockAdSlots.filter(slot => slot.status === 'booked').length;
+  const totalSlots = adSlots.length;
+  const availableSlots = adSlots.filter(slot => slot.status === 'available').length;
+  const bookedSlots = totalSlots - availableSlots;
   
   // Performance data
   const performanceData = [
