@@ -32,13 +32,13 @@ const AnalyticsPage: React.FC = () => {
     { name: 'Jun', revenue: 60000 },
   ];
   
-  // Slot status data for pie chart
+  // Slot status data for pie chart - matching the same format as AdminDashboard
   const slotStatusData = [
     { name: 'Available', value: availableSlots },
     { name: 'Booked', value: bookedSlots },
   ];
   
-  // Pie chart colors
+  // Pie chart colors - using the same colors as AdminDashboard
   const COLORS = ['#0088FE', '#00C49F'];
 
   return (
