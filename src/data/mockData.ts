@@ -58,6 +58,7 @@ export const mockAdSlots: AdSlot[] = [
     title: 'Prime Time Slot',
     description: 'Prime time slot for maximum viewership',
     channelName: 'Prime Network',
+    channelId: '1', // Added channelId
     startTime: new Date(today.setHours(20, 0, 0, 0)),
     endTime: new Date(today.setHours(20, 0, 30, 0)),
     durationSeconds: 30,
@@ -72,6 +73,7 @@ export const mockAdSlots: AdSlot[] = [
     title: 'Evening News Break',
     description: 'Evening news break with high engagement',
     channelName: 'News 24',
+    channelId: '2', // Added channelId
     startTime: new Date(today.setHours(18, 30, 0, 0)),
     endTime: new Date(today.setHours(18, 30, 45, 0)),
     durationSeconds: 45,
@@ -86,6 +88,7 @@ export const mockAdSlots: AdSlot[] = [
     title: 'Morning Show',
     description: 'Morning show slot for early viewers',
     channelName: 'Prime Network',
+    channelId: '1', // Added channelId
     startTime: new Date(tomorrow.setHours(8, 0, 0, 0)),
     endTime: new Date(tomorrow.setHours(8, 0, 15, 0)),
     durationSeconds: 15,
@@ -100,6 +103,7 @@ export const mockAdSlots: AdSlot[] = [
     title: 'Late Night Special',
     description: 'Late night special for dedicated viewers',
     channelName: 'Sports Zone',
+    channelId: '3', // Added channelId
     startTime: new Date(tomorrow.setHours(23, 0, 0, 0)),
     endTime: new Date(tomorrow.setHours(23, 0, 60, 0)),
     durationSeconds: 60,
@@ -114,6 +118,7 @@ export const mockAdSlots: AdSlot[] = [
     title: 'Weekend Special',
     description: 'Weekend special for family audience',
     channelName: 'Sports Zone',
+    channelId: '3', // Added channelId
     startTime: new Date(nextWeek.setHours(16, 0, 0, 0)),
     endTime: new Date(nextWeek.setHours(16, 0, 30, 0)),
     durationSeconds: 30,

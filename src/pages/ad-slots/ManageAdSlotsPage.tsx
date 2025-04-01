@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Calendar, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +22,7 @@ const ManageAdSlotsPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [channelName, setChannelName] = useState('');
+  const [channelId, setChannelId] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [durationSeconds, setDurationSeconds] = useState('30');
@@ -51,10 +51,15 @@ const ManageAdSlotsPage: React.FC = () => {
         return;
       }
       
+      // Find channel ID from channel name
+      const selectedChannel = mockChannels.find(channel => channel.name === channelName);
+      const selectedChannelId = selectedChannel ? selectedChannel.id : '';
+      
       const newSlot = await createAdSlot({
         title,
         description,
         channelName,
+        channelId: selectedChannelId,
         startTime: startTimeDate,
         endTime: endTimeDate,
         durationSeconds: Number(durationSeconds),
@@ -70,6 +75,7 @@ const ManageAdSlotsPage: React.FC = () => {
       setTitle('');
       setDescription('');
       setChannelName('');
+      setChannelId('');
       setStartTime('');
       setEndTime('');
       setDurationSeconds('30');
@@ -83,12 +89,19 @@ const ManageAdSlotsPage: React.FC = () => {
     }
   };
   
+  const handleChannelChange = (value: string) => {
+    setChannelName(value);
+    const selectedChannel = mockChannels.find(channel => channel.name === value);
+    if (selectedChannel) {
+      setChannelId(selectedChannel.id);
+    }
+  };
+  
   const handleEditSlot = (slotId: string) => {
     navigate(`/ad-slots/${slotId}/edit`);
   };
   
   const handleDeleteSlot = (slotId: string) => {
-    // In a real application, we would call an API here
     setAdSlots(adSlots.filter(slot => slot.id !== slotId));
     toast.success('Ad slot deleted successfully');
   };
@@ -156,7 +169,7 @@ const ManageAdSlotsPage: React.FC = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="channel">Channel</Label>
-                <Select value={channelName} onValueChange={setChannelName} required>
+                <Select value={channelName} onValueChange={handleChannelChange} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a channel" />
                   </SelectTrigger>
