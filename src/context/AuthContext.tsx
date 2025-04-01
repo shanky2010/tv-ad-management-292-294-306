@@ -1,8 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '@/types';
-import { login as loginApi, register as registerApi } from '@/services/mockApi';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -24,70 +25,126 @@ export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Improved user session persistence with better error handling
+  // Setup auth state listener and session
   useEffect(() => {
-    const loadStoredUser = () => {
-      try {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          // Validate that the parsed object has the expected structure
-          if (parsedUser && 
-              typeof parsedUser === 'object' && 
-              'id' in parsedUser && 
-              'name' in parsedUser && 
-              'email' in parsedUser && 
-              'role' in parsedUser) {
-            setUser(parsedUser);
-            console.log('User loaded from localStorage:', parsedUser);
-          } else {
-            console.error('Invalid user data structure in localStorage');
-            localStorage.removeItem('user');
-          }
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        if (currentSession?.user) {
+          // Fetch user profile from our profiles table
+          setTimeout(async () => {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', currentSession.user.id)
+              .single();
+              
+            if (profile) {
+              const userData: User = {
+                id: currentSession.user.id,
+                name: profile.name,
+                email: profile.email,
+                role: profile.role as UserRole,
+                avatar: profile.avatar || undefined,
+                company: profile.company || undefined, 
+                phone: profile.phone || undefined
+              };
+              
+              setUser(userData);
+              console.log('User profile loaded:', userData);
+            } else {
+              setUser(null);
+            }
+          }, 0);
+        } else {
+          setUser(null);
         }
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('user');
-      } finally {
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        // Fetch user profile data
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentSession.user.id)
+          .single()
+          .then(({ data: profile, error }) => {
+            if (error) {
+              console.error('Error fetching user profile:', error);
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+            
+            if (profile) {
+              const userData: User = {
+                id: currentSession.user.id,
+                name: profile.name,
+                email: profile.email,
+                role: profile.role as UserRole,
+                avatar: profile.avatar || undefined,
+                company: profile.company || undefined,
+                phone: profile.phone || undefined
+              };
+              
+              setUser(userData);
+              console.log('Initial user profile loaded:', userData);
+            }
+            setIsLoading(false);
+          });
+      } else {
         setIsLoading(false);
       }
-    };
+    });
 
-    loadStoredUser();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const user = await loginApi(email, password);
-      if (user) {
-        // Ensure we're setting the user in state AND localStorage
-        setUser(user);
-        localStorage.setItem('user', JSON.stringify(user));
-        console.log('User logged in and stored in localStorage:', user);
-        
-        toast({
-          title: "Login successful!",
-          description: `Welcome back, ${user.name}!`,
-        });
-        return true;
-      } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error('Login error:', error.message);
         toast({
           title: "Login failed",
-          description: "Invalid email or password. Please try again.",
+          description: error.message,
           variant: "destructive",
         });
         return false;
       }
+      
+      if (data.user) {
+        toast({
+          title: "Login successful!",
+          description: `Welcome back!`,
+        });
+        return true;
+      }
+      
+      return false;
     } catch (error) {
+      console.error('Unexpected login error:', error);
       toast({
         title: "Login error",
-        description: "An error occurred during login. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
-      console.error('Login error:', error);
       return false;
     }
   };
@@ -99,34 +156,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     role: UserRole
   ): Promise<boolean> => {
     try {
-      const newUser = await registerApi(email, password, name, role);
-      if (newUser) {
-        // Ensure we're setting the user in state AND localStorage
-        setUser(newUser);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        console.log('User registered and stored in localStorage:', newUser);
-        
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            role
+          }
+        }
+      });
+      
+      if (error) {
+        console.error('Registration error:', error.message);
+        toast({
+          title: "Registration failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return false;
+      }
+      
+      if (data.user) {
         toast({
           title: "Registration successful!",
-          description: `Welcome to Adversify, ${newUser.name}!`,
+          description: `Welcome to Adversify!`,
         });
         return true;
       }
+      
       return false;
     } catch (error) {
+      console.error('Unexpected registration error:', error);
       toast({
         title: "Registration error",
-        description: "An error occurred during registration. Please try again.",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
-      console.error('Registration error:', error);
       return false;
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('Logout error:', error.message);
+      toast({
+        title: "Logout error",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setUser(null);
-    localStorage.removeItem('user');
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",
