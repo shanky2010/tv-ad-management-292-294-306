@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -35,30 +36,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, currentSession) => {
         setSession(currentSession);
         if (currentSession?.user) {
-          // Fetch user profile from our profiles table
+          // Use setTimeout to prevent deadlocks when fetching profile data
           setTimeout(async () => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', currentSession.user.id)
-              .single();
-              
-            if (profile) {
-              const userData: User = {
-                id: currentSession.user.id,
-                name: profile.name,
-                email: profile.email,
-                role: profile.role as UserRole,
-                avatar: profile.avatar || undefined,
-                company: profile.company || undefined, 
-                phone: profile.phone || undefined
-              };
-              
-              setUser(userData);
-              console.log('User profile loaded:', userData);
-            } else {
-              setUser(null);
-            }
+            // Create a user object from the session user metadata since profiles table has issues
+            const userData: User = {
+              id: currentSession.user.id,
+              name: currentSession.user.user_metadata.name || currentSession.user.email?.split('@')[0] || 'User',
+              email: currentSession.user.email || '',
+              role: (currentSession.user.user_metadata.role as UserRole) || 'advertiser',
+              avatar: currentSession.user.user_metadata.avatar,
+              company: currentSession.user.user_metadata.company,
+              phone: currentSession.user.user_metadata.phone
+            };
+            
+            setUser(userData);
+            console.log('User authenticated:', userData);
           }, 0);
         } else {
           setUser(null);
@@ -71,39 +63,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(currentSession);
       
       if (currentSession?.user) {
-        // Fetch user profile data
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentSession.user.id)
-          .single()
-          .then(({ data: profile, error }) => {
-            if (error) {
-              console.error('Error fetching user profile:', error);
-              setUser(null);
-              setIsLoading(false);
-              return;
-            }
-            
-            if (profile) {
-              const userData: User = {
-                id: currentSession.user.id,
-                name: profile.name,
-                email: profile.email,
-                role: profile.role as UserRole,
-                avatar: profile.avatar || undefined,
-                company: profile.company || undefined,
-                phone: profile.phone || undefined
-              };
-              
-              setUser(userData);
-              console.log('Initial user profile loaded:', userData);
-            }
-            setIsLoading(false);
-          });
-      } else {
-        setIsLoading(false);
+        // Create a user object from the session user metadata
+        const userData: User = {
+          id: currentSession.user.id,
+          name: currentSession.user.user_metadata.name || currentSession.user.email?.split('@')[0] || 'User',
+          email: currentSession.user.email || '',
+          role: (currentSession.user.user_metadata.role as UserRole) || 'advertiser',
+          avatar: currentSession.user.user_metadata.avatar,
+          company: currentSession.user.user_metadata.company,
+          phone: currentSession.user.user_metadata.phone
+        };
+        
+        setUser(userData);
+        console.log('Initial user authenticated:', userData);
       }
+      setIsLoading(false);
     });
 
     return () => {
