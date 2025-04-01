@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +7,7 @@ import { Session } from '@supabase/supabase-js';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; errorMessage?: string }>;
   register: (email: string, password: string, name: string, role: UserRole) => Promise<boolean>;
   logout: () => void;
 }
@@ -16,7 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: true,
-  login: async () => false,
+  login: async () => ({ success: false }),
   register: async () => false,
   logout: () => {},
 });
@@ -112,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; errorMessage?: string }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -126,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           description: error.message,
           variant: "destructive",
         });
-        return false;
+        return { success: false, errorMessage: error.message };
       }
       
       if (data.user) {
@@ -134,10 +133,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           title: "Login successful!",
           description: `Welcome back!`,
         });
-        return true;
+        return { success: true };
       }
       
-      return false;
+      return { success: false, errorMessage: "Unknown error occurred" };
     } catch (error) {
       console.error('Unexpected login error:', error);
       toast({
@@ -145,7 +144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
-      return false;
+      return { success: false, errorMessage: "An unexpected error occurred" };
     }
   };
 

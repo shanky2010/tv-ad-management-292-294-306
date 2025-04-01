@@ -13,6 +13,7 @@ export const LoginForm: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEmailNotConfirmed, setIsEmailNotConfirmed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -21,16 +22,21 @@ export const LoginForm: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setIsEmailNotConfirmed(false);
     
     try {
       console.log('Attempting login with:', { email });
-      const success = await login(email, password);
+      const { success, errorMessage } = await login(email, password);
       if (success) {
         console.log('Login successful, navigating to dashboard');
         navigate('/dashboard');
       } else {
         console.log('Login failed');
-        setError('Invalid email or password. Please try again.');
+        if (errorMessage?.includes('Email not confirmed')) {
+          setIsEmailNotConfirmed(true);
+        } else {
+          setError(errorMessage || 'Invalid email or password. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error during login submission:', error);
@@ -56,6 +62,15 @@ export const LoginForm: React.FC = () => {
             <div className="bg-destructive/10 p-3 rounded-md flex items-start gap-2 animate-slide-in">
               <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
               <p className="text-sm text-destructive">{error}</p>
+            </div>
+          )}
+          {isEmailNotConfirmed && (
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-md flex items-start gap-2 animate-slide-in">
+              <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-700">
+                <p className="font-medium">Email not confirmed</p>
+                <p className="mt-1">Please check your inbox and confirm your email before logging in.</p>
+              </div>
             </div>
           )}
           <div className="space-y-2">
