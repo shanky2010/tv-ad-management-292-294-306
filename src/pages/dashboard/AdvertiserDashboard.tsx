@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { format } from 'date-fns';
+import ChatbotWidget from '@/components/chat/ChatbotWidget';
 
 const AdvertiserDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -295,6 +295,9 @@ const AdvertiserDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Add the Chatbot Widget */}
+      <ChatbotWidget />
     </div>
   );
 };

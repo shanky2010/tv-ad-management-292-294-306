@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -90,4 +89,11 @@ export interface PerformanceMetric {
   views: number;
   engagementRate: number;
   timeSlot: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
 }

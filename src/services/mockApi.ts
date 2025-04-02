@@ -381,3 +381,16 @@ export const fetchChannels = async (): Promise<Channel[]> => {
   await delay(800);
   return db.channels;
 };
+
+// Add this new function to the existing mockApi.ts file
+export const processChatbotMessage = async (message: string, history: ChatMessage[]) => {
+  await delay(1000); // Simulate network latency
+  
+  try {
+    const response = await generateChatbotResponse(message, history);
+    return { message: response };
+  } catch (error) {
+    console.error('Error processing chatbot message:', error);
+    throw new Error('Failed to process message');
+  }
+};
