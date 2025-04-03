@@ -6,7 +6,8 @@ import {
   Notification,
   Channel,
   PerformanceMetric,
-  UserRole
+  UserRole,
+  ChatMessage
 } from '@/types';
 import { 
   mockUsers, 
@@ -19,6 +20,7 @@ import {
   mockLogin as loginMockOriginal,
   mockRegister as registerMock
 } from '@/data/mockData';
+import { generateChatbotResponse } from '@/services/chatbotService';
 
 // In-memory storage to mimic database
 const db = {
