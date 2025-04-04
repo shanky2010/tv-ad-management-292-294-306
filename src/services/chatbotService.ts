@@ -12,31 +12,34 @@ export const generateChatbotResponse = async (
   history: ChatMessage[]
 ): Promise<string> => {
   try {
-    // For text-only input, use the gemini-pro model
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    // Use the gemini-1.5-flash model which is available in the current API
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     
-    const systemPrompt = "You are a helpful TV advertising assistant. You help advertisers understand how to book slots, manage campaigns, and optimize their TV advertising strategy. Keep responses concise and focused on TV advertising topics.";
+    // Prepare chat history for the Gemini API
+    const formattedHistory = history.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
     
-    const chat = model.startChat({
-      history: [
-        {
-          role: "user",
-          parts: "Hello, I need help with TV advertising",
-        },
-        {
-          role: "model",
-          parts: "Hello! I'm your TV advertising assistant. I can help you with booking ad slots, understanding pricing, managing your campaigns, and more. What specific aspect of TV advertising would you like to learn about today?",
-        },
-      ],
+    // Add system prompt to guide the AI
+    const chatSession = model.startChat({
       generationConfig: {
-        maxOutputTokens: 200,
+        maxOutputTokens: 250,
+        temperature: 0.7,
       },
     });
 
     // Send the message and get a response
-    const result = await chat.sendMessage(message);
-    const response = result.response;
+    const result = await chatSession.sendMessage([
+      {
+        text: `You are a helpful TV advertising assistant. Help advertisers understand how to book slots, manage campaigns, and optimize their TV advertising strategy. 
+        Keep responses concise and focused on TV advertising topics.
+        
+        User query: ${message}`
+      }
+    ]);
     
+    const response = result.response;
     return response.text();
   } catch (error) {
     console.error('Error getting chatbot response:', error);

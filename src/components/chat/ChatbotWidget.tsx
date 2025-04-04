@@ -9,13 +9,15 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, MessageSquare, X, Send } from 'lucide-react';
+import { Loader2, MessageSquare, X, Send, AlertCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from '@/types';
 import { generateChatbotResponse } from '@/services/chatbotService';
+import { useToast } from '@/hooks/use-toast';
 
 const ChatbotWidget: React.FC = () => {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -27,6 +29,7 @@ const ChatbotWidget: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -68,10 +71,14 @@ const ChatbotWidget: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setHasError(false);
     
     try {
-      // Use the chatbot service directly since we don't need a real API for this demo
-      const responseText = await generateChatbotResponse(input, messages.slice(-6));
+      // Get the last 6 messages for context
+      const recentHistory = [...messages.slice(-6), userMessage];
+      
+      // Use the chatbot service
+      const responseText = await generateChatbotResponse(input, recentHistory);
       
       // Add AI response
       const botMessage: ChatMessage = {
@@ -84,6 +91,15 @@ const ChatbotWidget: React.FC = () => {
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      setHasError(true);
+      
+      // Show error toast
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to the AI service. Please try again later.",
+        variant: "destructive",
+      });
       
       // Add error message
       const errorMessage: ChatMessage = {
@@ -103,6 +119,15 @@ const ChatbotWidget: React.FC = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    }
+  };
+
+  const retryConnection = () => {
+    if (messages.length > 1) {
+      const lastUserMessage = [...messages].reverse().find(msg => msg.role === 'user');
+      if (lastUserMessage) {
+        setInput(lastUserMessage.content);
+      }
     }
   };
 
@@ -143,6 +168,19 @@ const ChatbotWidget: React.FC = () => {
                       <Loader2 className="h-3 w-3 animate-spin mr-2" />
                       Thinking...
                     </div>
+                  </div>
+                )}
+                {hasError && !isLoading && (
+                  <div className="flex justify-center my-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={retryConnection}
+                      className="text-xs flex items-center gap-1"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      Connection error. Click to retry
+                    </Button>
                   </div>
                 )}
               </div>
