@@ -4,6 +4,7 @@ import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
+import ChatbotWidget from '@/components/chat/ChatbotWidget';
 
 export const AppShell: React.FC = () => {
   const { user, isLoading } = useAuth();
@@ -28,6 +29,7 @@ export const AppShell: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-6">
           <Outlet />
         </main>
+        {user.role === 'advertiser' && <ChatbotWidget />}
       </div>
     </div>
   );

@@ -19,7 +19,6 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { format } from 'date-fns';
-import ChatbotWidget from '@/components/chat/ChatbotWidget';
 
 const AdvertiserDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -295,9 +294,6 @@ const AdvertiserDashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-      
-      {/* Add the Chatbot Widget */}
-      <ChatbotWidget />
     </div>
   );
 };
