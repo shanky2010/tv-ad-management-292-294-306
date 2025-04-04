@@ -9,8 +9,9 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, MessageSquare, X } from 'lucide-react';
+import { Loader2, MessageSquare, X, Send } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
 import { ChatMessage } from '@/types';
 import { generateChatbotResponse } from '@/services/chatbotService';
 
@@ -20,14 +21,14 @@ const ChatbotWidget: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your AI advertising assistant. How can I help you today with your TV advertising needs?',
+      content: 'Hello! I\'m your AI advertising assistant powered by Google Gemini. How can I help you today with your TV advertising needs?',
       timestamp: new Date(),
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -47,7 +48,7 @@ const ChatbotWidget: React.FC = () => {
     setIsOpen(!isOpen);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
   };
 
@@ -98,6 +99,13 @@ const ChatbotWidget: React.FC = () => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {isOpen && (
@@ -142,20 +150,23 @@ const ChatbotWidget: React.FC = () => {
           </div>
           <CardFooter className="p-3 border-t">
             <form onSubmit={sendMessage} className="flex w-full gap-2">
-              <Input
+              <Textarea
                 ref={inputRef}
                 placeholder="Type your message..."
                 value={input}
                 onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 min-h-[40px] max-h-[120px]"
+                rows={1}
               />
               <Button 
                 type="submit" 
-                size="sm" 
+                size="icon"
                 disabled={isLoading || !input.trim()}
+                className="h-10 w-10"
               >
-                Send
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </form>
           </CardFooter>
