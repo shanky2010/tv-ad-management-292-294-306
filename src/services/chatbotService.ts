@@ -63,3 +63,17 @@ export const generateChatbotResponse = async (
   // Get a response based on the message content
   return findRelevantResponse(message);
 };
+
+// Process the chatbot message
+export const processChatbotMessage = async (message: string, history: ChatMessage[]) => {
+  // Simulate network latency
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  try {
+    const response = await generateChatbotResponse(message, history);
+    return { message: response };
+  } catch (error) {
+    console.error('Error processing chatbot message:', error);
+    throw new Error('Failed to process message');
+  }
+};
