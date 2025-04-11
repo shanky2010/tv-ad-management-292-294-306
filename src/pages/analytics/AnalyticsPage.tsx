@@ -14,7 +14,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { fetchAdSlots, fetchBookings } from '@/services/mockApi';
+import { fetchAdSlots, fetchBookings, fetchPerformanceMetrics } from '@/services/supabaseService';
 import { useQuery } from '@tanstack/react-query';
 
 const AnalyticsPage: React.FC = () => {
@@ -33,20 +33,39 @@ const AnalyticsPage: React.FC = () => {
     }
   });
   
+  const { data: performanceMetrics = [] } = useQuery({
+    queryKey: ['performanceMetrics'],
+    queryFn: async () => {
+      return await fetchPerformanceMetrics();
+    }
+  });
+  
   // Count statistics
   const totalSlots = adSlots.length;
   const availableSlots = adSlots.filter(slot => slot.status === 'available').length;
   const bookedSlots = totalSlots - availableSlots;
   
-  // Performance data
-  const performanceData = [
-    { name: 'Jan', revenue: 25000 },
-    { name: 'Feb', revenue: 35000 },
-    { name: 'Mar', revenue: 45000 },
-    { name: 'Apr', revenue: 30000 },
-    { name: 'May', revenue: 50000 },
-    { name: 'Jun', revenue: 60000 },
-  ];
+  // Calculate monthly revenue for chart
+  const currentYear = new Date().getFullYear();
+  const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
+    const month = new Date().getMonth() - 5 + i;
+    const adjustedMonth = month < 0 ? month + 12 : month;
+    const monthName = new Date(currentYear, adjustedMonth, 1).toLocaleString('default', { month: 'short' });
+    
+    // Filter bookings for this month
+    const monthlyBookings = bookings.filter(booking => {
+      const bookingDate = new Date(booking.createdAt);
+      return bookingDate.getMonth() === adjustedMonth && 
+             booking.status === 'approved';
+    });
+    
+    // Calculate revenue
+    const revenue = monthlyBookings.reduce((sum, booking) => {
+      return sum + (booking.slotDetails?.price || 0);
+    }, 0);
+    
+    return { name: monthName, revenue };
+  });
   
   // Slot status data for pie chart - matching the same format as AdminDashboard
   const slotStatusData = [
@@ -71,7 +90,7 @@ const AnalyticsPage: React.FC = () => {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={monthlyRevenue} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
