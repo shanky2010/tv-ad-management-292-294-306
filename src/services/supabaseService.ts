@@ -237,7 +237,7 @@ export const updateBookingStatus = async (
   bookingId: string, 
   status: 'pending' | 'approved' | 'rejected' | 'completed'
 ): Promise<Booking> => {
-  // First get the current booking to access the advertiser_id
+  // First get the current booking to access the advertiser_id and slot_id
   const { data: currentBooking } = await supabase
     .from('bookings')
     .select('*')
@@ -259,6 +259,19 @@ export const updateBookingStatus = async (
   if (error) {
     console.error('Error updating booking status:', error);
     throw error;
+  }
+  
+  // If the booking is rejected, set the ad slot back to 'available'
+  if (status === 'rejected') {
+    const { error: slotError } = await supabase
+      .from('ad_slots')
+      .update({ status: 'available' })
+      .eq('id', currentBooking.slot_id);
+      
+    if (slotError) {
+      console.error('Error updating slot status:', slotError);
+      // We don't throw here to ensure the booking status update still succeeds
+    }
   }
   
   // Create notification for the advertiser

@@ -1,3 +1,4 @@
+
 import { Booking, Notification, User } from '@/types';
 import { db, delay } from './mockDb';
 
@@ -178,6 +179,17 @@ export const updateBookingStatus = async (
   db.bookings[bookingIndex] = updatedBooking;
   
   console.log(`Updated booking ${bookingId} status to ${status}`);
+  
+  // If the booking is rejected, set the ad slot back to 'available'
+  if (status === 'rejected') {
+    const slotId = booking.slotId;
+    const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
+    
+    if (slotIndex !== -1) {
+      console.log(`Setting ad slot ${slotId} back to 'available' after booking rejection`);
+      db.adSlots[slotIndex] = { ...db.adSlots[slotIndex], status: 'available' };
+    }
+  }
   
   // Create notification for advertiser
   const advertiserNotification: Notification = {
