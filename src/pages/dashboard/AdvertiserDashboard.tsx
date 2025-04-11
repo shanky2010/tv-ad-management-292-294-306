@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { fetchBookings, fetchAdSlots } from '@/services/mockApi';
-import { Booking, AdSlot } from '@/types';
+import { fetchBookings, fetchAdSlots, fetchPerformanceMetrics } from '@/services/supabaseService';
 import { Link } from 'react-router-dom';
 import { Calendar, BookOpen, Film, TrendingUp } from 'lucide-react';
 import { 
@@ -19,51 +17,98 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { format } from 'date-fns';
+import { useQuery } from '@tanstack/react-query';
 
 const AdvertiserDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<AdSlot[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      
-      setIsLoading(true);
-      try {
-        // Fetch bookings and available slots
-        const bookingsData = await fetchBookings(user.id);
-        const slotsData = await fetchAdSlots();
-        
-        setRecentBookings(bookingsData.slice(0, 3));
-        setAvailableSlots(slotsData.slice(0, 3));
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setIsLoading(false);
+  // Fetch user's bookings
+  const { 
+    data: bookings = [], 
+    isLoading: bookingsLoading 
+  } = useQuery({
+    queryKey: ['userBookings', user?.id],
+    queryFn: () => user?.id ? fetchBookings(user.id) : [],
+    enabled: !!user?.id
+  });
+  
+  // Fetch available ad slots
+  const { 
+    data: adSlots = [], 
+    isLoading: slotsLoading 
+  } = useQuery({
+    queryKey: ['availableAdSlots'],
+    queryFn: fetchAdSlots
+  });
+  
+  // Fetch performance metrics
+  const { 
+    data: metrics = [], 
+    isLoading: metricsLoading 
+  } = useQuery({
+    queryKey: ['performanceMetrics', user?.id],
+    queryFn: () => {
+      if (!user?.id) return [];
+      // Get bookingIds for this advertiser
+      const userBookingIds = bookings.map(booking => booking.id);
+      return fetchPerformanceMetrics()
+        .then(allMetrics => allMetrics.filter(metric => 
+          userBookingIds.includes(metric.bookingId)
+        ));
+    },
+    enabled: !!user?.id && bookings.length > 0
+  });
+  
+  // Stats
+  const totalBookings = bookings.length;
+  const activeAds = bookings.filter(b => b.status === 'approved').length;
+  const recentBookings = bookings.slice(0, 3);
+  const availableSlotsPreviews = adSlots.slice(0, 3);
+  
+  // Calculate total views and avg engagement
+  const totalViews = metrics.reduce((sum, metric) => sum + metric.views, 0);
+  const avgEngagement = metrics.length > 0 
+    ? metrics.reduce((sum, metric) => sum + metric.engagementRate, 0) / metrics.length
+    : 0;
+  
+  // Performance data for charts
+  const performanceData = metrics.length > 0 
+    ? metrics.map(metric => ({
+        date: format(new Date(metric.date), 'yyyy-MM-dd'),
+        views: metric.views
+      })).slice(0, 7)
+    : Array.from({ length: 7 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - 6 + i);
+        return { 
+          date: format(date, 'yyyy-MM-dd'),
+          views: Math.floor(Math.random() * 30000) + 40000 // Sample data
+        };
+      });
+  
+  // Channel performance data
+  const channelPerformance = Array.from(
+    metrics.reduce((map, metric) => {
+      const booking = bookings.find(b => b.id === metric.bookingId);
+      if (booking?.slotDetails?.channelName) {
+        const channelName = booking.slotDetails.channelName;
+        const views = map.get(channelName) || 0;
+        map.set(channelName, views + metric.views);
       }
-    };
-    
-    fetchData();
-  }, [user]);
+      return map;
+    }, new Map<string, number>())
+  ).map(([channel, views]) => ({ channel, views }));
   
-  // Performance data (mock data - would be replaced with actual data)
-  const performanceData = [
-    { date: '2023-05-01', views: 50000 },
-    { date: '2023-05-02', views: 55000 },
-    { date: '2023-05-03', views: 45000 },
-    { date: '2023-05-04', views: 60000 },
-    { date: '2023-05-05', views: 75000 },
-    { date: '2023-05-06', views: 65000 },
-    { date: '2023-05-07', views: 70000 },
-  ];
+  // If no real channel data yet, use sample data
+  const channelData = channelPerformance.length > 0
+    ? channelPerformance
+    : [
+        { channel: 'Prime Network', views: 120000 },
+        { channel: 'News 24', views: 85000 },
+        { channel: 'Sports Zone', views: 95000 },
+      ];
   
-  const channelPerformance = [
-    { channel: 'Prime Network', views: 120000 },
-    { channel: 'News 24', views: 85000 },
-    { channel: 'Sports Zone', views: 95000 },
-  ];
+  const isLoading = bookingsLoading || slotsLoading || metricsLoading;
   
   return (
     <div className="space-y-6">
@@ -78,7 +123,7 @@ const AdvertiserDashboard: React.FC = () => {
             <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{totalBookings}</div>
             <p className="text-xs text-muted-foreground">+2 from last month</p>
           </CardContent>
         </Card>
@@ -88,7 +133,7 @@ const AdvertiserDashboard: React.FC = () => {
             <CardTitle className="text-sm font-medium">Active Ads</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">5</div>
+            <div className="text-2xl font-bold">{activeAds}</div>
             <p className="text-xs text-muted-foreground">+1 from last month</p>
           </CardContent>
         </Card>
@@ -98,7 +143,7 @@ const AdvertiserDashboard: React.FC = () => {
             <CardTitle className="text-sm font-medium">Total Views</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">420K</div>
+            <div className="text-2xl font-bold">{totalViews}</div>
             <p className="text-xs text-muted-foreground">+15% from last month</p>
           </CardContent>
         </Card>
@@ -108,7 +153,7 @@ const AdvertiserDashboard: React.FC = () => {
             <CardTitle className="text-sm font-medium">Avg. Engagement</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12.5%</div>
+            <div className="text-2xl font-bold">{avgEngagement.toFixed(2)}%</div>
             <p className="text-xs text-muted-foreground">+2.3% from last month</p>
           </CardContent>
         </Card>
@@ -155,7 +200,7 @@ const AdvertiserDashboard: React.FC = () => {
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={channelPerformance}
+                  data={channelData}
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
                   <XAxis dataKey="channel" />
@@ -235,13 +280,13 @@ const AdvertiserDashboard: React.FC = () => {
               <div className="flex justify-center py-4">
                 <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
               </div>
-            ) : availableSlots.length === 0 ? (
+            ) : availableSlotsPreviews.length === 0 ? (
               <div className="text-center py-4">
                 <p className="text-muted-foreground">No available slots</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {availableSlots.map((slot) => (
+                {availableSlotsPreviews.map((slot) => (
                   <div key={slot.id} className="border-b pb-3 last:border-0 last:pb-0">
                     <div>
                       <p className="font-medium">{slot.title}</p>

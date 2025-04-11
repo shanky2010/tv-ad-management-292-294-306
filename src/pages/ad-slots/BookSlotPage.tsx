@@ -11,7 +11,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { AdSlot, Ad } from '@/types';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { getAdSlot, fetchAds, bookAdSlot } from '@/services/mockApi';
+import { getAdSlot, fetchAds, bookAdSlot } from '@/services/supabaseService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const BookSlotPage: React.FC = () => {

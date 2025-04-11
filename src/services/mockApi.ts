@@ -1,10 +1,3 @@
 
-// Re-export all services
-export * from './authService';
-export * from './adSlotService';
-export * from './adService';
-export * from './bookingService';
-export * from './notificationService';
-export * from './performanceService';
-export * from './channelService';
-export * from './chatbotService';
+// Re-export all services from supabaseService to ensure compatibility with existing code
+export * from './supabaseService';

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { Calendar, Clock, DollarSign, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { fetchAdSlots } from '@/services/mockApi';
+import { fetchAdSlots } from '@/services/supabaseService';
 
 const AdSlotsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');

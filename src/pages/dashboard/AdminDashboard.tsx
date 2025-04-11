@@ -1,14 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, FileVideo, BarChart, Users, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { fetchAdSlots, fetchBookings, updateBookingStatus } from '@/services/mockApi';
+import { fetchAdSlots, fetchBookings, updateBookingStatus } from '@/services/supabaseService';
 import { Booking, AdSlot } from '@/types';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   BarChart as ChartComponent, 
   Bar, 
@@ -25,58 +26,59 @@ import {
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [fetchedSlots, fetchedBookings] = await Promise.all([
-          fetchAdSlots(),
-          fetchBookings()
-        ]);
-        
-        setAdSlots(fetchedSlots);
-        setBookings(fetchedBookings);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        toast.error('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, []);
+  // Fetch ad slots and bookings
+  const { 
+    data: adSlots = [], 
+    isLoading: slotsLoading 
+  } = useQuery({
+    queryKey: ['adSlots'],
+    queryFn: fetchAdSlots
+  });
+  
+  const { 
+    data: bookings = [], 
+    isLoading: bookingsLoading 
+  } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: () => fetchBookings()
+  });
   
   // Handle booking approval
-  const handleApprove = async (bookingId: string) => {
-    try {
-      const updatedBooking = await updateBookingStatus(bookingId, 'approved');
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? updatedBooking : booking
-      ));
+  const approveMutation = useMutation({
+    mutationFn: (bookingId: string) => updateBookingStatus(bookingId, 'approved'),
+    onSuccess: () => {
       toast.success('Booking approved successfully');
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['adSlots'] });
+    },
+    onError: (error) => {
       console.error('Error approving booking:', error);
       toast.error('Failed to approve booking');
     }
-  };
+  });
   
   // Handle booking rejection
-  const handleReject = async (bookingId: string) => {
-    try {
-      const updatedBooking = await updateBookingStatus(bookingId, 'rejected');
-      setBookings(bookings.map(booking => 
-        booking.id === bookingId ? updatedBooking : booking
-      ));
+  const rejectMutation = useMutation({
+    mutationFn: (bookingId: string) => updateBookingStatus(bookingId, 'rejected'),
+    onSuccess: () => {
       toast.success('Booking rejected successfully');
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      queryClient.invalidateQueries({ queryKey: ['adSlots'] });
+    },
+    onError: (error) => {
       console.error('Error rejecting booking:', error);
       toast.error('Failed to reject booking');
     }
+  });
+  
+  const handleApprove = (bookingId: string) => {
+    approveMutation.mutate(bookingId);
+  };
+  
+  const handleReject = (bookingId: string) => {
+    rejectMutation.mutate(bookingId);
   };
   
   // Count statistics
@@ -85,15 +87,34 @@ const AdminDashboard: React.FC = () => {
   const bookedSlots = adSlots.filter(slot => slot.status === 'booked').length;
   const pendingApprovals = bookings.filter(booking => booking.status === 'pending').length;
   
-  // Performance data
-  const performanceData = [
-    { name: 'Jan', revenue: 25000 },
-    { name: 'Feb', revenue: 35000 },
-    { name: 'Mar', revenue: 45000 },
-    { name: 'Apr', revenue: 30000 },
-    { name: 'May', revenue: 50000 },
-    { name: 'Jun', revenue: 60000 },
-  ];
+  // Calculate total revenue (from approved bookings)
+  const totalRevenue = bookings
+    .filter(booking => booking.status === 'approved')
+    .reduce((sum, booking) => {
+      return sum + (booking.slotDetails?.price || 0);
+    }, 0);
+  
+  // Calculate monthly revenue for chart
+  const currentYear = new Date().getFullYear();
+  const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
+    const month = new Date().getMonth() - 5 + i;
+    const adjustedMonth = month < 0 ? month + 12 : month;
+    const monthName = new Date(currentYear, adjustedMonth, 1).toLocaleString('default', { month: 'short' });
+    
+    // Filter bookings for this month
+    const monthlyBookings = bookings.filter(booking => {
+      const bookingDate = new Date(booking.createdAt);
+      return bookingDate.getMonth() === adjustedMonth && 
+             booking.status === 'approved';
+    });
+    
+    // Calculate revenue
+    const revenue = monthlyBookings.reduce((sum, booking) => {
+      return sum + (booking.slotDetails?.price || 0);
+    }, 0);
+    
+    return { name: monthName, revenue };
+  });
   
   // Slot status data for pie chart
   const slotStatusData = [
@@ -104,7 +125,7 @@ const AdminDashboard: React.FC = () => {
   // Pie chart colors
   const COLORS = ['#0088FE', '#00C49F'];
 
-  if (loading) {
+  if (slotsLoading || bookingsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full"></div>

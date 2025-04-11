@@ -1,15 +1,76 @@
 
 import { Booking, Notification, User } from '@/types';
-import { db, delay } from './mockDb';
+import { supabase } from '@/integrations/supabase/client';
 
 export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> => {
-  await delay(800);
   console.log(`Fetching bookings for advertiserId: ${advertiserId || 'all'}`);
-  const filteredBookings = advertiserId 
-    ? db.bookings.filter(booking => booking.advertiserId === advertiserId)
-    : db.bookings;
-  console.log(`Found ${filteredBookings.length} bookings`);
-  return filteredBookings;
+  
+  let query = supabase.from('bookings').select(`
+    id,
+    slot_id,
+    advertiser_id,
+    advertiser_name,
+    ad_id,
+    ad_title,
+    ad_description,
+    status,
+    created_at,
+    updated_at
+  `);
+  
+  if (advertiserId) {
+    query = query.eq('advertiser_id', advertiserId);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) {
+    console.error('Error fetching bookings:', error);
+    throw error;
+  }
+  
+  console.log(`Found ${data.length} bookings`);
+  
+  // Transform the data to match our types
+  const bookings: Booking[] = data.map(booking => ({
+    id: booking.id,
+    slotId: booking.slot_id,
+    advertiserId: booking.advertiser_id,
+    advertiserName: booking.advertiser_name,
+    adId: booking.ad_id,
+    adTitle: booking.ad_title,
+    adDescription: booking.ad_description,
+    status: booking.status as 'pending' | 'approved' | 'rejected' | 'completed',
+    createdAt: new Date(booking.created_at),
+    // Add slot details if needed - we'll fetch these separately later
+  }));
+  
+  // Fetch slot details for each booking
+  for (const booking of bookings) {
+    const { data: slotData, error: slotError } = await supabase
+      .from('ad_slots')
+      .select(`
+        channel_name,
+        start_time,
+        end_time,
+        price,
+        duration_seconds
+      `)
+      .eq('id', booking.slotId)
+      .single();
+    
+    if (slotData && !slotError) {
+      booking.slotDetails = {
+        channelName: slotData.channel_name,
+        startTime: new Date(slotData.start_time),
+        endTime: new Date(slotData.end_time),
+        price: slotData.price,
+        durationSeconds: slotData.duration_seconds
+      };
+    }
+  }
+  
+  return bookings;
 };
 
 export const bookAdSlot = async (
@@ -19,148 +80,122 @@ export const bookAdSlot = async (
   adTitle: string,
   adDescription: string
 ): Promise<Booking> => {
-  await delay(1000);
-  
   console.log(`Attempting to book slot ${slotId} for advertiser ${advertiserId}`);
-  console.log('Current users in DB:', db.users.map(u => ({ id: u.id, name: u.name })));
   
-  // Find the user
-  const advertiser = db.users.find(user => user.id === advertiserId);
-  if (!advertiser) {
-    console.error(`Advertiser with ID ${advertiserId} not found`);
+  // Get the advertiser details
+  const { data: advertiserData, error: advertiserError } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', advertiserId)
+    .single();
     
-    // If we can't find the user in the db array, we'll create a fallback user
-    // This is a workaround for the issue where localStorage has a user that isn't in our mock DB
-    const fallbackUser: User = {
-      id: advertiserId,
-      name: "Advertiser",
-      email: "advertiser@example.com",
-      role: "advertiser",
-      avatar: "/avatars/advertiser.png"
-    };
-    
-    // Add to DB for future use
-    db.users.push(fallbackUser);
-    console.log('Added fallback user to DB:', fallbackUser);
-    
-    // Find the slot
-    const slot = db.adSlots.find(slot => slot.id === slotId);
-    if (!slot) throw new Error('Ad slot not found');
-    
-    // Verify that the slot is still available
-    if (slot.status !== 'available') {
-      console.error(`Attempt to book unavailable slot: ${slotId}, current status: ${slot.status}`);
-      throw new Error('Ad slot is not available');
-    }
-    
-    // Create booking with fallback user
-    const booking: Booking = {
-      id: `booking-${Date.now()}`,
-      slotId,
-      advertiserId,
-      advertiserName: fallbackUser.name,
-      adId: adId || null,
-      adTitle: adTitle || '',
-      adDescription: adDescription || '',
-      status: 'pending',
-      createdAt: new Date(),
-      slotDetails: {
-        channelName: slot.channelName,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        price: slot.price,
-        durationSeconds: slot.durationSeconds
-      }
-    };
-    
-    console.log('Creating new booking with fallback user:', booking);
-    
-    // Update slot status
-    const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
-    if (slotIndex !== -1) {
-      db.adSlots[slotIndex] = { ...slot, status: 'booked' };
-    }
-    
-    // Add booking
-    db.bookings.push(booking);
-    console.log('Total bookings after creation:', db.bookings.length);
-    
-    // Create notification for admin
-    const adminNotification: Notification = {
-      id: `notification-${Date.now()}-admin`,
-      userId: db.users.find(u => u.role === 'admin')?.id || '1',
-      title: 'New Booking Request',
-      message: `${fallbackUser.name} has requested to book ${slot.title}`,
-      type: 'booking_request',
-      read: false,
-      createdAt: new Date(),
-      targetId: booking.id
-    };
-    
-    db.notifications.push(adminNotification);
-    
-    return booking;
+  if (advertiserError) {
+    console.error(`Error finding advertiser with ID ${advertiserId}:`, advertiserError);
+    throw new Error('Advertiser not found');
   }
   
-  // Original logic if advertiser is found (keeping the rest the same)
-  // Find the slot
-  const slot = db.adSlots.find(slot => slot.id === slotId);
-  if (!slot) throw new Error('Ad slot not found');
+  const advertiserName = advertiserData?.name || 'Advertiser';
   
-  // Verify that the slot is still available (important double-check)
-  if (slot.status !== 'available') {
-    console.error(`Attempt to book unavailable slot: ${slotId}, current status: ${slot.status}`);
+  // Get the slot details
+  const { data: slotData, error: slotError } = await supabase
+    .from('ad_slots')
+    .select('*')
+    .eq('id', slotId)
+    .single();
+    
+  if (slotError || !slotData) {
+    console.error('Error fetching ad slot:', slotError);
+    throw new Error('Ad slot not found');
+  }
+  
+  // Verify that the slot is still available
+  if (slotData.status !== 'available') {
+    console.error(`Attempt to book unavailable slot: ${slotId}, current status: ${slotData.status}`);
     throw new Error('Ad slot is not available');
   }
   
-  // Find the ad
-  const ad = adId ? db.ads.find(ad => ad.id === adId) : null;
-  
-  // Create booking
-  const booking: Booking = {
-    id: `booking-${Date.now()}`,
-    slotId,
-    advertiserId,
-    advertiserName: advertiser.name,
-    adId: adId || null,
-    adTitle: adTitle || (ad?.title || ''),
-    adDescription: adDescription || (ad?.description || ''),
-    status: 'pending',
-    createdAt: new Date(),
-    slotDetails: {
-      channelName: slot.channelName,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      price: slot.price,
-      durationSeconds: slot.durationSeconds
-    }
-  };
-  
-  console.log('Creating new booking:', booking);
-  
-  // Update slot status
-  const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
-  if (slotIndex !== -1) {
-    db.adSlots[slotIndex] = { ...slot, status: 'booked' };
+  // Update the slot status to booked
+  const { error: updateSlotError } = await supabase
+    .from('ad_slots')
+    .update({ status: 'booked' })
+    .eq('id', slotId);
+    
+  if (updateSlotError) {
+    console.error('Error updating slot status:', updateSlotError);
+    throw updateSlotError;
   }
   
-  // Add booking
-  db.bookings.push(booking);
-  console.log('Total bookings after creation:', db.bookings.length);
-  
-  // Create notification for admin
-  const adminNotification: Notification = {
-    id: `notification-${Date.now()}-admin`,
-    userId: db.users.find(u => u.role === 'admin')?.id || '1',
-    title: 'New Booking Request',
-    message: `${advertiser.name} has requested to book ${slot.title}`,
-    type: 'booking_request',
-    read: false,
-    createdAt: new Date(),
-    targetId: booking.id
+  // Create the booking
+  const newBooking = {
+    slot_id: slotId,
+    advertiser_id: advertiserId,
+    advertiser_name: advertiserName,
+    ad_id: adId || null,
+    ad_title: adTitle,
+    ad_description: adDescription,
+    status: 'pending'
   };
   
-  db.notifications.push(adminNotification);
+  const { data: bookingData, error: bookingError } = await supabase
+    .from('bookings')
+    .insert([newBooking])
+    .select()
+    .single();
+    
+  if (bookingError) {
+    console.error('Error creating booking:', bookingError);
+    
+    // Try to restore the slot to available if booking failed
+    await supabase
+      .from('ad_slots')
+      .update({ status: 'available' })
+      .eq('id', slotId);
+      
+    throw bookingError;
+  }
+  
+  // Find an admin to notify
+  const { data: adminData } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('role', 'admin')
+    .single();
+    
+  if (adminData) {
+    // Create notification for admin
+    const adminNotification = {
+      user_id: adminData.id,
+      title: 'New Booking Request',
+      message: `${advertiserName} has requested to book ${slotData.title}`,
+      type: 'booking_request',
+      read: false,
+      target_id: bookingData.id
+    };
+    
+    await supabase
+      .from('notifications')
+      .insert([adminNotification]);
+  }
+  
+  // Format and return the new booking
+  const booking: Booking = {
+    id: bookingData.id,
+    slotId: bookingData.slot_id,
+    advertiserId: bookingData.advertiser_id,
+    advertiserName: bookingData.advertiser_name,
+    adId: bookingData.ad_id,
+    adTitle: bookingData.ad_title,
+    adDescription: bookingData.ad_description,
+    status: bookingData.status as 'pending' | 'approved' | 'rejected' | 'completed',
+    createdAt: new Date(bookingData.created_at),
+    slotDetails: {
+      channelName: slotData.channel_name,
+      startTime: new Date(slotData.start_time),
+      endTime: new Date(slotData.end_time),
+      price: slotData.price,
+      durationSeconds: slotData.duration_seconds
+    }
+  };
   
   return booking;
 };
@@ -169,41 +204,93 @@ export const updateBookingStatus = async (
   bookingId: string, 
   status: 'pending' | 'approved' | 'rejected' | 'completed'
 ): Promise<Booking> => {
-  await delay(800);
+  // First get the current booking to access the slot_id
+  const { data: currentBooking, error: fetchError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .single();
+    
+  if (fetchError || !currentBooking) {
+    console.error('Error fetching booking:', fetchError);
+    throw new Error('Booking not found');
+  }
   
-  const bookingIndex = db.bookings.findIndex(b => b.id === bookingId);
-  if (bookingIndex === -1) throw new Error('Booking not found');
-  
-  const booking = db.bookings[bookingIndex];
-  const updatedBooking = { ...booking, status };
-  db.bookings[bookingIndex] = updatedBooking;
-  
-  console.log(`Updated booking ${bookingId} status to ${status}`);
+  // Update the booking status
+  const { data: updatedBooking, error: updateError } = await supabase
+    .from('bookings')
+    .update({ status })
+    .eq('id', bookingId)
+    .select()
+    .single();
+    
+  if (updateError) {
+    console.error('Error updating booking status:', updateError);
+    throw updateError;
+  }
   
   // If the booking is rejected, set the ad slot back to 'available'
   if (status === 'rejected') {
-    const slotId = booking.slotId;
-    const slotIndex = db.adSlots.findIndex(s => s.id === slotId);
+    const slotId = currentBooking.slot_id;
     
-    if (slotIndex !== -1) {
-      console.log(`Setting ad slot ${slotId} back to 'available' after booking rejection`);
-      db.adSlots[slotIndex] = { ...db.adSlots[slotIndex], status: 'available' };
+    console.log(`Setting ad slot ${slotId} back to 'available' after booking rejection`);
+    
+    const { error: slotError } = await supabase
+      .from('ad_slots')
+      .update({ status: 'available' })
+      .eq('id', slotId);
+      
+    if (slotError) {
+      console.error('Error updating slot status:', slotError);
     }
   }
   
   // Create notification for advertiser
-  const advertiserNotification: Notification = {
-    id: `notification-${Date.now()}-advertiser`,
-    userId: booking.advertiserId,
+  const advertiserNotification = {
+    user_id: currentBooking.advertiser_id,
     title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-    message: `Your booking for ${booking.adTitle} has been ${status}`,
+    message: `Your booking for ${currentBooking.ad_title} has been ${status}`,
     type: 'booking_status',
     read: false,
-    createdAt: new Date(),
-    targetId: booking.id
+    target_id: bookingId
   };
   
-  db.notifications.push(advertiserNotification);
+  await supabase
+    .from('notifications')
+    .insert([advertiserNotification]);
+    
+  // Fetch slot details for the booking
+  const { data: slotData } = await supabase
+    .from('ad_slots')
+    .select(`
+      channel_name,
+      start_time,
+      end_time,
+      price,
+      duration_seconds
+    `)
+    .eq('id', currentBooking.slot_id)
+    .single();
+    
+  // Format and return the updated booking
+  const booking: Booking = {
+    id: updatedBooking.id,
+    slotId: updatedBooking.slot_id,
+    advertiserId: updatedBooking.advertiser_id,
+    advertiserName: updatedBooking.advertiser_name,
+    adId: updatedBooking.ad_id,
+    adTitle: updatedBooking.ad_title,
+    adDescription: updatedBooking.ad_description,
+    status: updatedBooking.status as 'pending' | 'approved' | 'rejected' | 'completed',
+    createdAt: new Date(updatedBooking.created_at),
+    slotDetails: slotData ? {
+      channelName: slotData.channel_name,
+      startTime: new Date(slotData.start_time),
+      endTime: new Date(slotData.end_time),
+      price: slotData.price,
+      durationSeconds: slotData.duration_seconds
+    } : undefined
+  };
   
-  return updatedBooking;
+  return booking;
 };
