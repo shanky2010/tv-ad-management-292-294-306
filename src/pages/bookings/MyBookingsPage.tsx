@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Calendar, Clock, Tv, DollarSign } from 'lucide-react';
+// Import explicitly from mockApi.ts to ensure consistency
 import { fetchBookings } from '@/services/mockApi';
 
 const MyBookingsPage: React.FC = () => {

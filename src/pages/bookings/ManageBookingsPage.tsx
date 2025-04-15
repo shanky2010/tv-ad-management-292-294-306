@@ -4,7 +4,8 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { fetchBookings, updateBookingStatus } from '@/services/bookingService';
+// Import from mockApi.ts to ensure we're using the correct implementation
+import { fetchBookings, updateBookingStatus } from '@/services/mockApi';
 import { Booking } from '@/types';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
