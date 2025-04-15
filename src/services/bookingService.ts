@@ -1,4 +1,3 @@
-
 import { Booking, Notification, User } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +28,11 @@ export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> =
     throw error;
   }
   
-  console.log(`Found ${data.length} bookings`);
+  console.log(`Found ${data?.length || 0} bookings`);
+  
+  if (!data) {
+    return [];
+  }
   
   // Transform the data to match our types
   const bookings: Booking[] = data.map(booking => ({
@@ -47,26 +50,31 @@ export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> =
   
   // Fetch slot details for each booking
   for (const booking of bookings) {
-    const { data: slotData, error: slotError } = await supabase
-      .from('ad_slots')
-      .select(`
-        channel_name,
-        start_time,
-        end_time,
-        price,
-        duration_seconds
-      `)
-      .eq('id', booking.slotId)
-      .single();
-    
-    if (slotData && !slotError) {
-      booking.slotDetails = {
-        channelName: slotData.channel_name,
-        startTime: new Date(slotData.start_time),
-        endTime: new Date(slotData.end_time),
-        price: slotData.price,
-        durationSeconds: slotData.duration_seconds
-      };
+    try {
+      const { data: slotData, error: slotError } = await supabase
+        .from('ad_slots')
+        .select(`
+          channel_name,
+          start_time,
+          end_time,
+          price,
+          duration_seconds
+        `)
+        .eq('id', booking.slotId)
+        .maybeSingle(); // Use maybeSingle instead of single to handle missing slots
+      
+      if (slotData && !slotError) {
+        booking.slotDetails = {
+          channelName: slotData.channel_name,
+          startTime: new Date(slotData.start_time),
+          endTime: new Date(slotData.end_time),
+          price: slotData.price,
+          durationSeconds: slotData.duration_seconds
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching slot details for booking ${booking.id}:`, error);
+      // Continue with next booking, don't break the entire process for one failed slot fetch
     }
   }
   

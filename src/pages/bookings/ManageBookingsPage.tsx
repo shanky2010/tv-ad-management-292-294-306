@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { fetchBookings, updateBookingStatus } from '@/services/mockApi';
+import { fetchBookings, updateBookingStatus } from '@/services/bookingService';
 import { Booking } from '@/types';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,7 +20,12 @@ const ManageBookingsPage: React.FC = () => {
   } = useQuery({
     queryKey: ['bookings'],
     queryFn: async () => {
-      return await fetchBookings();
+      try {
+        return await fetchBookings();
+      } catch (error) {
+        console.error('Error in bookings query:', error);
+        throw error;
+      }
     }
   });
   

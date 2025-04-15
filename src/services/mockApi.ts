@@ -1,3 +1,4 @@
 
-// Re-export all services from supabaseService to ensure compatibility with existing code
+// Re-export all services from bookingService to ensure compatibility with existing code
+export * from './bookingService';
 export * from './supabaseService';
