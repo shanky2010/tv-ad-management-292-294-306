@@ -52,8 +52,8 @@ export const bookAdSlot = async (
     p_ad_description: string;
   };
   
-  // Fix the RPC call by removing the generic type parameters and using type assertion
-  const { data, error } = await supabase.rpc('book_ad_slot', {
+  // Fix the RPC call by using a record type that maps string keys to any values
+  const { data, error } = await supabase.rpc<Record<string, any>>('book_ad_slot', {
     p_slot_id: slotId,
     p_advertiser_id: advertiserId,
     p_ad_id: adId,
