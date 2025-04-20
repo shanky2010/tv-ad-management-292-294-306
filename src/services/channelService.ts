@@ -1,8 +1,15 @@
 
 import { Channel } from '@/types';
-import { db, delay } from './mockDb';
+import { supabase, handleError } from './baseService';
 
 export const fetchChannels = async (): Promise<Channel[]> => {
-  await delay(800);
-  return db.channels;
+  const { data, error } = await supabase
+    .from('channels')
+    .select('*');
+    
+  if (error) {
+    return handleError(error, 'fetching channels');
+  }
+  
+  return data as unknown as Channel[];
 };
