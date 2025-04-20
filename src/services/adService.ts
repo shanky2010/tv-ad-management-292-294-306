@@ -1,42 +1,28 @@
 
 import { Ad } from '@/types';
-import { supabase, handleError } from './baseService';
+import { db, delay } from './mockDb';
 
 export const fetchAds = async (advertiserId?: string): Promise<Ad[]> => {
-  let query = supabase.from('ads').select('*');
-  
-  if (advertiserId) {
-    query = query.eq('advertiser_id', advertiserId);
-  }
-  
-  const { data, error } = await query;
-  
-  if (error) {
-    return handleError(error, 'fetching ads');
-  }
-  
-  return data as unknown as Ad[];
+  await delay(800);
+  console.log(`Fetching ads for advertiserId: ${advertiserId || 'all'}`);
+  const filteredAds = advertiserId 
+    ? db.ads.filter(ad => ad.advertiserId === advertiserId)
+    : db.ads;
+  console.log(`Found ${filteredAds.length} ads`);
+  return filteredAds;
 };
 
 export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Promise<Ad> => {
-  const { data, error } = await supabase
-    .from('ads')
-    .insert({
-      title: ad.title,
-      description: ad.description,
-      type: ad.type,
-      file_data: ad.fileData,
-      thumbnail_data: ad.thumbnailData,
-      advertiser_id: ad.advertiserId,
-      advertiser_name: ad.advertiserName,
-      status: 'active'
-    })
-    .select()
-    .single();
-    
-  if (error) {
-    return handleError(error, 'creating ad');
-  }
+  await delay(1000);
+  const newAd: Ad = {
+    ...ad,
+    id: `ad-${Date.now()}`,
+    createdAt: new Date(),
+    status: 'active'
+  };
   
-  return data as unknown as Ad;
+  console.log('Creating new ad:', { id: newAd.id, title: newAd.title, type: newAd.type });
+  db.ads.push(newAd);
+  console.log('Total ads after creation:', db.ads.length);
+  return newAd;
 };

@@ -1,67 +1,31 @@
 
 import { AdSlot } from '@/types';
-import { supabase, handleError } from './baseService';
+import { db, delay } from './mockDb';
 
 export const fetchAdSlots = async (): Promise<AdSlot[]> => {
-  const { data, error } = await supabase
-    .from('ad_slots')
-    .select('*')
-    .eq('status', 'available');
-    
-  if (error) {
-    return handleError(error, 'fetching ad slots');
-  }
-  
-  return data as unknown as AdSlot[];
-};
-
-export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<AdSlot> => {
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    throw new Error('You must be logged in to create an ad slot');
-  }
-  
-  // Convert Date objects to ISO strings for Supabase
-  const { data, error } = await supabase
-    .from('ad_slots')
-    .insert({
-      title: slotData.title,
-      description: slotData.description,
-      channel_name: slotData.channelName,
-      start_time: slotData.startTime.toISOString(),
-      end_time: slotData.endTime.toISOString(),
-      duration_seconds: slotData.durationSeconds,
-      price: slotData.price,
-      estimated_viewers: slotData.estimatedViewers,
-      channel_id: slotData.channelId,
-      created_by: user.id,
-      status: 'available'
-    })
-    .select()
-    .single();
-    
-  if (error) {
-    return handleError(error, 'creating ad slot');
-  }
-  
-  return data as unknown as AdSlot;
+  await delay(800);
+  console.log('Fetching ad slots, total available:', db.adSlots.filter(slot => slot.status === 'available').length);
+  return db.adSlots.filter(slot => slot.status === 'available');
 };
 
 export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
-  const { data, error } = await supabase
-    .from('ad_slots')
-    .select('*')
-    .eq('id', id)
-    .single();
-    
-  if (error) {
-    if (error.code === 'PGRST116') {
-      // PGRST116 means "No rows returned by the query"
-      return null;
-    }
-    return handleError(error, 'fetching ad slot');
-  }
+  await delay(500);
+  return db.adSlots.find(slot => slot.id === id) || null;
+};
+
+export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<AdSlot> => {
+  await delay(1000);
   
-  return data as unknown as AdSlot;
+  const newSlot: AdSlot = {
+    ...slotData,
+    id: `slot-${Date.now()}`,
+    createdAt: new Date(),
+    createdBy: '1', // Admin ID
+    status: 'available'
+  };
+  
+  console.log('Creating new ad slot:', newSlot);
+  db.adSlots.push(newSlot);
+  console.log('Total ad slots after creation:', db.adSlots.length);
+  return newSlot;
 };

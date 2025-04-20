@@ -1,11 +1,10 @@
 
-// Export services
+// Re-export all services
+export * from './authService';
 export * from './adSlotService';
 export * from './adService';
 export * from './bookingService';
 export * from './notificationService';
-export * from './channelService';
 export * from './performanceService';
-
-// Re-export specific functions for backward compatibility
-export { getAdSlot } from './adSlotService';
+export * from './channelService';
+export * from './chatbotService';
