@@ -25,46 +25,28 @@ export const fetchAdSlots = async (): Promise<AdSlot[]> => {
   return data as unknown as AdSlot[];
 };
 
-export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
-  const { data, error } = await supabase
-    .from('ad_slots')
-    .select('*')
-    .eq('id', id)
-    .single();
-    
-  if (error) {
-    console.error('Error fetching ad slot:', error);
-    throw error;
-  }
-  
-  return data as unknown as AdSlot;
-};
-
 export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<AdSlot> => {
-  // Get the current user
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
     throw new Error('You must be logged in to create an ad slot');
   }
   
-  const newSlot = {
-    status: 'available',
-    created_by: user.id,
-    title: slotData.title,
-    description: slotData.description,
-    channel_name: slotData.channelName,
-    start_time: slotData.startTime.toISOString(), // Convert Date to ISO string
-    end_time: slotData.endTime.toISOString(),     // Convert Date to ISO string
-    duration_seconds: slotData.durationSeconds,
-    price: slotData.price,
-    estimated_viewers: slotData.estimatedViewers,
-    channel_id: slotData.channelId || user.id // Use channelId from slotData
-  };
-  
   const { data, error } = await supabase
     .from('ad_slots')
-    .insert(newSlot)  // Remove array brackets since insert can take a single object
+    .insert({
+      title: slotData.title,
+      description: slotData.description,
+      channel_name: slotData.channelName,
+      start_time: slotData.startTime,
+      end_time: slotData.endTime,
+      duration_seconds: slotData.durationSeconds,
+      price: slotData.price,
+      estimated_viewers: slotData.estimatedViewers,
+      channel_id: slotData.channelId,
+      created_by: user.id,
+      status: 'available'
+    })
     .select()
     .single();
     
@@ -120,7 +102,16 @@ export const createAd = async (ad: Omit<Ad, 'id' | 'createdAt' | 'status'>): Pro
 
 // Bookings
 export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> => {
-  let query = supabase.from('bookings').select('*');
+  let query = supabase.from('bookings').select(`
+    *,
+    ad_slots (
+      channel_name,
+      start_time,
+      end_time,
+      price,
+      duration_seconds
+    )
+  `);
   
   if (advertiserId) {
     query = query.eq('advertiser_id', advertiserId);
@@ -133,7 +124,10 @@ export const fetchBookings = async (advertiserId?: string): Promise<Booking[]> =
     throw error;
   }
   
-  return data as unknown as Booking[];
+  return data.map(booking => ({
+    ...booking,
+    slotDetails: booking.ad_slots
+  })) as unknown as Booking[];
 };
 
 export const bookAdSlot = async (
@@ -143,112 +137,33 @@ export const bookAdSlot = async (
   adTitle: string,
   adDescription: string
 ): Promise<Booking> => {
-  // First, get the user's name
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', advertiserId)
-    .single();
-    
-  const advertiserName = profileData?.name || 'Advertiser';
+  const { data: { user } } = await supabase.auth.getUser();
   
-  // Get the slot details
-  const { data: slotData } = await supabase
-    .from('ad_slots')
-    .select('*')
-    .eq('id', slotId)
-    .single();
-    
-  if (!slotData) {
-    throw new Error('Ad slot not found');
+  if (!user) {
+    throw new Error('You must be logged in to book an ad slot');
   }
   
-  if (slotData.status !== 'available') {
-    throw new Error('Ad slot is not available');
+  // Start a transaction using RPC
+  const { data, error } = await supabase.rpc('book_ad_slot', {
+    p_slot_id: slotId,
+    p_advertiser_id: advertiserId,
+    p_ad_id: adId,
+    p_ad_title: adTitle,
+    p_ad_description: adDescription
+  });
+  
+  if (error) {
+    console.error('Error booking ad slot:', error);
+    throw error;
   }
   
-  // Start a transaction
-  // First update the slot status
-  const { error: slotError } = await supabase
-    .from('ad_slots')
-    .update({ status: 'booked' })
-    .eq('id', slotId);
-    
-  if (slotError) {
-    console.error('Error updating slot status:', slotError);
-    throw slotError;
-  }
-  
-  // Create the booking
-  const newBooking = {
-    slot_id: slotId,
-    advertiser_id: advertiserId,
-    advertiser_name: advertiserName,
-    ad_id: adId || null,
-    ad_title: adTitle,
-    ad_description: adDescription,
-    status: 'pending'
-  };
-  
-  const { data: bookingData, error: bookingError } = await supabase
-    .from('bookings')
-    .insert([newBooking])
-    .select()
-    .single();
-    
-  if (bookingError) {
-    console.error('Error creating booking:', bookingError);
-    // Try to revert the slot status change
-    await supabase
-      .from('ad_slots')
-      .update({ status: 'available' })
-      .eq('id', slotId);
-    throw bookingError;
-  }
-  
-  // Find an admin to notify
-  const { data: adminData } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('role', 'admin')
-    .limit(1)
-    .single();
-    
-  if (adminData && bookingData) {
-    // Create notification for admin
-    const adminNotification = {
-      user_id: adminData.id,
-      title: 'New Booking Request',
-      message: `${advertiserName} has requested to book ${slotData.title}`,
-      type: 'booking_request',
-      read: false,
-      target_id: bookingData.id
-    };
-    
-    await supabase
-      .from('notifications')
-      .insert([adminNotification]);
-  }
-  
-  return bookingData as unknown as Booking;
+  return data as unknown as Booking;
 };
 
 export const updateBookingStatus = async (
   bookingId: string, 
   status: 'pending' | 'approved' | 'rejected' | 'completed'
 ): Promise<Booking> => {
-  // First get the current booking to access the advertiser_id and slot_id
-  const { data: currentBooking } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('id', bookingId)
-    .single();
-    
-  if (!currentBooking) {
-    throw new Error('Booking not found');
-  }
-  
-  // Update the booking status
   const { data, error } = await supabase
     .from('bookings')
     .update({ status })
@@ -261,33 +176,6 @@ export const updateBookingStatus = async (
     throw error;
   }
   
-  // If the booking is rejected, set the ad slot back to 'available'
-  if (status === 'rejected') {
-    const { error: slotError } = await supabase
-      .from('ad_slots')
-      .update({ status: 'available' })
-      .eq('id', currentBooking.slot_id);
-      
-    if (slotError) {
-      console.error('Error updating slot status:', slotError);
-      // We don't throw here to ensure the booking status update still succeeds
-    }
-  }
-  
-  // Create notification for the advertiser
-  const notification = {
-    user_id: currentBooking.advertiser_id,
-    title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-    message: `Your booking for ${currentBooking.ad_title} has been ${status}`,
-    type: 'booking_status',
-    read: false,
-    target_id: bookingId
-  };
-  
-  await supabase
-    .from('notifications')
-    .insert([notification]);
-    
   return data as unknown as Booking;
 };
 
