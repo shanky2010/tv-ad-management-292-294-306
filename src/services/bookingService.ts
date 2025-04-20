@@ -43,7 +43,7 @@ export const bookAdSlot = async (
     throw new Error('You must be logged in to book an ad slot');
   }
   
-  // Call the RPC function
+  // Call the RPC function with named parameters
   const { data, error } = await supabase.rpc('book_ad_slot', {
     p_slot_id: slotId,
     p_advertiser_id: advertiserId,
