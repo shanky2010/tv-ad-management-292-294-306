@@ -43,14 +43,23 @@ export const bookAdSlot = async (
     throw new Error('You must be logged in to book an ad slot');
   }
   
-  // Call the RPC function with named parameters
-  const { data, error } = await supabase.rpc('book_ad_slot', {
+  // Define the parameters type explicitly to match the SQL function
+  type BookAdSlotParams = {
+    p_slot_id: string;
+    p_advertiser_id: string;
+    p_ad_id: string;
+    p_ad_title: string;
+    p_ad_description: string;
+  };
+  
+  // Call the RPC function with properly typed parameters
+  const { data, error } = await supabase.rpc<Booking>('book_ad_slot', {
     p_slot_id: slotId,
     p_advertiser_id: advertiserId,
     p_ad_id: adId,
     p_ad_title: adTitle,
     p_ad_description: adDescription
-  });
+  } as BookAdSlotParams);
   
   if (error) {
     return handleError(error, 'booking ad slot');
