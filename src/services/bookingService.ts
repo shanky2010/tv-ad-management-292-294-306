@@ -52,8 +52,8 @@ export const bookAdSlot = async (
     p_ad_description: string;
   };
   
-  // Call the RPC function with properly typed parameters - providing both type arguments
-  const { data, error } = await supabase.rpc<Booking, BookAdSlotParams>('book_ad_slot', {
+  // Fix the RPC call by removing the generic type parameters and using type assertion
+  const { data, error } = await supabase.rpc('book_ad_slot', {
     p_slot_id: slotId,
     p_advertiser_id: advertiserId,
     p_ad_id: adId,
