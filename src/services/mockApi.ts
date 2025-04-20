@@ -3,4 +3,4 @@
 export * from './supabaseService';
 
 // Re-export specific functions from adSlotService for backward compatibility
-export { getAdSlot } from './adSlotService';
+export { getAdSlot } from './supabaseService';
