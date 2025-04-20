@@ -58,6 +58,26 @@ export const createAdSlot = async (slotData: Omit<AdSlot, 'id' | 'createdAt' | '
   return data as unknown as AdSlot;
 };
 
+// Get a single ad slot by ID
+export const getAdSlot = async (id: string): Promise<AdSlot | null> => {
+  const { data, error } = await supabase
+    .from('ad_slots')
+    .select('*')
+    .eq('id', id)
+    .single();
+    
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // PGRST116 means "No rows returned by the query"
+      return null;
+    }
+    console.error('Error fetching ad slot:', error);
+    throw error;
+  }
+  
+  return data as unknown as AdSlot;
+};
+
 // Ads
 export const fetchAds = async (advertiserId?: string): Promise<Ad[]> => {
   let query = supabase.from('ads').select('*');
