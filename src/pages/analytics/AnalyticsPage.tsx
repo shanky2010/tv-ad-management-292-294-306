@@ -19,7 +19,35 @@ import {
 import { fetchAdSlots, fetchBookings } from '@/services/mockApi';
 import { useQuery } from '@tanstack/react-query';
 import { getAggregatedPerformanceData } from '@/services/performanceService';
-import { format, subDays, startOfMonth } from 'date-fns';
+import { format } from 'date-fns';
+import { PerformanceMetric } from '@/types';
+
+// Create an interface for the aggregated performance data
+interface AggregatedPerformanceData {
+  date: Date;
+  views: number;
+  engagementRate: number;
+  timeSlot: string;
+  adTitle?: string;
+}
+
+// Interface for processed data used in charts
+interface MonthlyRevenueData {
+  name: string;
+  revenue: number;
+  views: number;
+}
+
+interface DailyPerformanceData {
+  date: string;
+  views: number;
+  engagementRate: number;
+}
+
+interface TimeSlotData {
+  name: string;
+  views: number;
+}
 
 const AnalyticsPage: React.FC = () => {
   // Fetch ad slots and bookings data
@@ -64,7 +92,7 @@ const AnalyticsPage: React.FC = () => {
       acc[monthKey].revenue += item.views * 0.5; // assuming $0.50 per view
       acc[monthKey].views += item.views;
       return acc;
-    }, {} as Record<string, { name: string; revenue: number; views: number }>);
+    }, {} as Record<string, MonthlyRevenueData>);
 
     return Object.values(monthData);
   }, [performanceData]);
@@ -124,7 +152,7 @@ const AnalyticsPage: React.FC = () => {
       }
       acc[item.timeSlot].views += item.views;
       return acc;
-    }, {} as Record<string, { name: string; views: number }>);
+    }, {} as Record<string, TimeSlotData>);
 
     return Object.values(timeSlotData)
       .sort((a, b) => b.views - a.views)
