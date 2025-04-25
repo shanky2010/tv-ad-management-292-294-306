@@ -12,10 +12,14 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  LineChart,
+  Line
 } from 'recharts';
 import { fetchAdSlots, fetchBookings } from '@/services/mockApi';
 import { useQuery } from '@tanstack/react-query';
+import { getAggregatedPerformanceData } from '@/services/performanceService';
+import { format, subDays, startOfMonth } from 'date-fns';
 
 const AnalyticsPage: React.FC = () => {
   // Fetch ad slots and bookings data
@@ -32,30 +36,100 @@ const AnalyticsPage: React.FC = () => {
       return await fetchBookings();
     }
   });
+
+  // Fetch actual performance data
+  const { data: performanceData = [], isLoading: isLoadingPerformance } = useQuery({
+    queryKey: ['performanceData'],
+    queryFn: async () => {
+      return await getAggregatedPerformanceData();
+    }
+  });
   
   // Count statistics
   const totalSlots = adSlots.length;
   const availableSlots = adSlots.filter(slot => slot.status === 'available').length;
   const bookedSlots = totalSlots - availableSlots;
+
+  // Process performance data for visualization
+  const processedRevenueData = React.useMemo(() => {
+    if (!performanceData.length) return [];
+
+    // Group by month and calculate revenue
+    const monthData = performanceData.reduce((acc, item) => {
+      const monthKey = format(new Date(item.date), 'MMM');
+      if (!acc[monthKey]) {
+        acc[monthKey] = { name: monthKey, revenue: 0, views: 0 };
+      }
+      // Estimate revenue based on views (this is just an example)
+      acc[monthKey].revenue += item.views * 0.5; // assuming $0.50 per view
+      acc[monthKey].views += item.views;
+      return acc;
+    }, {} as Record<string, { name: string; revenue: number; views: number }>);
+
+    return Object.values(monthData);
+  }, [performanceData]);
   
-  // Performance data
-  const performanceData = [
-    { name: 'Jan', revenue: 25000 },
-    { name: 'Feb', revenue: 35000 },
-    { name: 'Mar', revenue: 45000 },
-    { name: 'Apr', revenue: 30000 },
-    { name: 'May', revenue: 50000 },
-    { name: 'Jun', revenue: 60000 },
-  ];
-  
-  // Slot status data for pie chart - matching the same format as AdminDashboard
+  // Create daily performance data for line chart
+  const dailyPerformanceData = React.useMemo(() => {
+    if (!performanceData.length) return [];
+
+    // Group by day
+    const dailyData = performanceData.reduce((acc, item) => {
+      const dayKey = format(new Date(item.date), 'yyyy-MM-dd');
+      if (!acc[dayKey]) {
+        acc[dayKey] = { 
+          date: dayKey, 
+          views: 0, 
+          engagementRate: 0,
+          engagementCount: 0 
+        };
+      }
+      acc[dayKey].views += item.views;
+      acc[dayKey].engagementRate += item.engagementRate;
+      acc[dayKey].engagementCount += 1;
+      return acc;
+    }, {} as Record<string, { 
+      date: string; 
+      views: number; 
+      engagementRate: number;
+      engagementCount: number 
+    }>);
+
+    // Calculate average engagement rate and format for display
+    return Object.values(dailyData).map(day => ({
+      date: format(new Date(day.date), 'MMM d'),
+      views: day.views,
+      engagementRate: day.engagementCount > 0 
+        ? +(day.engagementRate / day.engagementCount).toFixed(2)
+        : 0
+    }));
+  }, [performanceData]);
+
+  // Slot status data for pie chart
   const slotStatusData = [
     { name: 'Available', value: availableSlots },
     { name: 'Booked', value: bookedSlots },
   ];
   
-  // Pie chart colors - using the same colors as AdminDashboard
+  // Pie chart colors
   const COLORS = ['#0088FE', '#00C49F'];
+
+  // Get top performing time slots
+  const topTimeSlots = React.useMemo(() => {
+    if (!performanceData.length) return [];
+
+    const timeSlotData = performanceData.reduce((acc, item) => {
+      if (!acc[item.timeSlot]) {
+        acc[item.timeSlot] = { name: item.timeSlot, views: 0 };
+      }
+      acc[item.timeSlot].views += item.views;
+      return acc;
+    }, {} as Record<string, { name: string; views: number }>);
+
+    return Object.values(timeSlotData)
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 5);
+  }, [performanceData]);
 
   return (
     <div className="space-y-6">
@@ -70,17 +144,27 @@ const AnalyticsPage: React.FC = () => {
             <CardDescription>Monthly revenue from ad bookings</CardDescription>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Revenue']}
-                />
-                <Bar dataKey="revenue" fill="hsl(var(--primary))" />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoadingPerformance ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+              </div>
+            ) : processedRevenueData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={processedRevenueData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value) => [`$${Number(value).toLocaleString()}`, 'Revenue']}
+                  />
+                  <Bar dataKey="revenue" fill="hsl(var(--primary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-muted-foreground">No performance data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -115,32 +199,80 @@ const AnalyticsPage: React.FC = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle>Booking Trends</CardTitle>
-            <CardDescription>Monthly booking statistics</CardDescription>
+            <CardTitle>Top Performance by Time Slot</CardTitle>
+            <CardDescription>Views by time slot</CardDescription>
           </CardHeader>
           <CardContent className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={[
-                  { name: 'Jan', bookings: 12 },
-                  { name: 'Feb', bookings: 19 },
-                  { name: 'Mar', bookings: 15 },
-                  { name: 'Apr', bookings: 22 },
-                  { name: 'May', bookings: 28 },
-                  { name: 'Jun', bookings: 24 },
-                ]} 
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip formatter={(value) => [value, 'Bookings']} />
-                <Bar dataKey="bookings" fill="hsl(var(--secondary))" />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoadingPerformance ? (
+              <div className="flex h-full items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+              </div>
+            ) : topTimeSlots.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={topTimeSlots} 
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [value, 'Views']} />
+                  <Bar dataKey="views" fill="hsl(var(--secondary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-muted-foreground">No time slot data available</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+      
+      <Card className="col-span-2">
+        <CardHeader>
+          <CardTitle>Daily Performance Trends</CardTitle>
+          <CardDescription>Views and engagement rate over time</CardDescription>
+        </CardHeader>
+        <CardContent className="h-80">
+          {isLoadingPerformance ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            </div>
+          ) : dailyPerformanceData.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={dailyPerformanceData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis yAxisId="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <Tooltip />
+                <Legend />
+                <Line 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="views" 
+                  stroke="hsl(var(--primary))" 
+                  activeDot={{ r: 8 }} 
+                />
+                <Line 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="engagementRate" 
+                  stroke="hsl(var(--secondary))" 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-muted-foreground">No daily performance data available</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
