@@ -49,6 +49,13 @@ interface TimeSlotData {
   views: number;
 }
 
+interface DailyDataAccumulator {
+  date: string; 
+  views: number; 
+  engagementRate: number;
+  engagementCount: number;
+}
+
 const AnalyticsPage: React.FC = () => {
   // Fetch ad slots and bookings data
   const { data: adSlots = [] } = useQuery({
@@ -66,7 +73,7 @@ const AnalyticsPage: React.FC = () => {
   });
 
   // Fetch actual performance data
-  const { data: performanceData = [], isLoading: isLoadingPerformance } = useQuery({
+  const { data: performanceData = [], isLoading: isLoadingPerformance } = useQuery<AggregatedPerformanceData[]>({
     queryKey: ['performanceData'],
     queryFn: async () => {
       return await getAggregatedPerformanceData();
@@ -83,7 +90,7 @@ const AnalyticsPage: React.FC = () => {
     if (!performanceData.length) return [];
 
     // Group by month and calculate revenue
-    const monthData = performanceData.reduce((acc, item) => {
+    const monthData = performanceData.reduce<Record<string, MonthlyRevenueData>>((acc, item) => {
       const monthKey = format(new Date(item.date), 'MMM');
       if (!acc[monthKey]) {
         acc[monthKey] = { name: monthKey, revenue: 0, views: 0 };
@@ -92,7 +99,7 @@ const AnalyticsPage: React.FC = () => {
       acc[monthKey].revenue += item.views * 0.5; // assuming $0.50 per view
       acc[monthKey].views += item.views;
       return acc;
-    }, {} as Record<string, MonthlyRevenueData>);
+    }, {});
 
     return Object.values(monthData);
   }, [performanceData]);
@@ -102,12 +109,7 @@ const AnalyticsPage: React.FC = () => {
     if (!performanceData.length) return [];
 
     // Group by day
-    const dailyData = performanceData.reduce((acc: Record<string, { 
-      date: string; 
-      views: number; 
-      engagementRate: number;
-      engagementCount: number 
-    }>, item: AggregatedPerformanceData) => {
+    const dailyData = performanceData.reduce<Record<string, DailyDataAccumulator>>((acc, item) => {
       const dayKey = format(new Date(item.date), 'yyyy-MM-dd');
       if (!acc[dayKey]) {
         acc[dayKey] = { 
@@ -146,7 +148,7 @@ const AnalyticsPage: React.FC = () => {
   const topTimeSlots = React.useMemo(() => {
     if (!performanceData.length) return [];
 
-    const timeSlotData = performanceData.reduce((acc: Record<string, TimeSlotData>, item: AggregatedPerformanceData) => {
+    const timeSlotData = performanceData.reduce<Record<string, TimeSlotData>>((acc, item) => {
       if (!acc[item.timeSlot]) {
         acc[item.timeSlot] = { name: item.timeSlot, views: 0 };
       }
