@@ -48,7 +48,7 @@ export const fetchPerformanceMetrics = async (bookingId?: string): Promise<Perfo
 };
 
 // New function to create performance metrics
-export const createPerformanceMetric = async (metric: Omit<PerformanceMetric, 'id' | 'createdAt'>): Promise<PerformanceMetric> => {
+export const createPerformanceMetric = async (metric: Omit<PerformanceMetric, 'id' | 'date'>): Promise<PerformanceMetric> => {
   try {
     console.log('Creating new performance metric:', metric);
     
@@ -80,7 +80,7 @@ export const createPerformanceMetric = async (metric: Omit<PerformanceMetric, 'i
     const newMetric: PerformanceMetric = {
       ...metric,
       id: `metric-${Date.now()}`,
-      createdAt: new Date()
+      date: new Date()
     };
     
     db.performanceMetrics.push(newMetric);
@@ -146,7 +146,7 @@ export const getAggregatedPerformanceData = async (advertiserId?: string): Promi
     const aggregatedData = filteredMetrics.map(metric => {
       const booking = bookingMap.get(metric.bookingId);
       return {
-        date: new Date(metric.createdAt),
+        date: new Date(metric.date),
         views: metric.views,
         engagementRate: metric.engagementRate,
         timeSlot: metric.timeSlot,
