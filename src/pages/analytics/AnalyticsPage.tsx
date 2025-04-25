@@ -102,7 +102,12 @@ const AnalyticsPage: React.FC = () => {
     if (!performanceData.length) return [];
 
     // Group by day
-    const dailyData = performanceData.reduce((acc, item) => {
+    const dailyData = performanceData.reduce((acc: Record<string, { 
+      date: string; 
+      views: number; 
+      engagementRate: number;
+      engagementCount: number 
+    }>, item: AggregatedPerformanceData) => {
       const dayKey = format(new Date(item.date), 'yyyy-MM-dd');
       if (!acc[dayKey]) {
         acc[dayKey] = { 
@@ -116,12 +121,7 @@ const AnalyticsPage: React.FC = () => {
       acc[dayKey].engagementRate += item.engagementRate;
       acc[dayKey].engagementCount += 1;
       return acc;
-    }, {} as Record<string, { 
-      date: string; 
-      views: number; 
-      engagementRate: number;
-      engagementCount: number 
-    }>);
+    }, {});
 
     // Calculate average engagement rate and format for display
     return Object.values(dailyData).map(day => ({
@@ -146,13 +146,13 @@ const AnalyticsPage: React.FC = () => {
   const topTimeSlots = React.useMemo(() => {
     if (!performanceData.length) return [];
 
-    const timeSlotData = performanceData.reduce((acc, item) => {
+    const timeSlotData = performanceData.reduce((acc: Record<string, TimeSlotData>, item: AggregatedPerformanceData) => {
       if (!acc[item.timeSlot]) {
         acc[item.timeSlot] = { name: item.timeSlot, views: 0 };
       }
       acc[item.timeSlot].views += item.views;
       return acc;
-    }, {} as Record<string, TimeSlotData>);
+    }, {});
 
     return Object.values(timeSlotData)
       .sort((a, b) => b.views - a.views)
