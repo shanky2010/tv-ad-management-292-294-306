@@ -23,7 +23,7 @@ const ChatbotWidget: React.FC = () => {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m your AI advertising assistant powered by Google Gemini. How can I help you today with your TV advertising needs?',
+      content: 'Hello! I\'m your AI advertising assistant. How can I help you today with your TV advertising needs?',
       timestamp: new Date(),
     }
   ]);
