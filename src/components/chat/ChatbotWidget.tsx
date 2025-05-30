@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -16,17 +15,17 @@ import { ChatMessage } from '@/types';
 import { generateChatbotResponse } from '@/services/chatbotService';
 import { useToast } from '@/hooks/use-toast';
 
+const INITIAL_MESSAGE: ChatMessage = {
+  id: '1',
+  role: 'assistant',
+  content: 'Hello! I\'m your AI advertising assistant. How can I help you today with your TV advertising needs?',
+  timestamp: new Date(),
+};
+
 const ChatbotWidget: React.FC = () => {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hello! I\'m your AI advertising assistant. How can I help you today with your TV advertising needs?',
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -49,6 +48,10 @@ const ChatbotWidget: React.FC = () => {
 
   const toggleChat = () => {
     setIsOpen(!isOpen);
+    // Reset messages when opening chat to ensure fresh state
+    if (!isOpen) {
+      setMessages([INITIAL_MESSAGE]);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
